@@ -97,6 +97,12 @@ public:
     bool isModified() const { return modified; }
     void setModified(bool m) { modified = m; }
     
+    // File I/O
+    bool saveToFile(const juce::File& file);
+    bool loadFromFile(const juce::File& file);
+    juce::XmlElement* toXml() const;
+    bool fromXml(const juce::XmlElement& xml);
+    
     juce::CriticalSection& getLock() { return lock; }
     
 private:

@@ -32,6 +32,7 @@ target_sources(PianoDAW PRIVATE
     src/core/model/CC.h
     src/core/model/Track.h
     src/core/model/Project.h
+    src/core/model/Project.cpp
     src/core/edit/UndoStack.h
     src/core/edit/EditCommands.h
     src/core/timeline/PPQ.h
