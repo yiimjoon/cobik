@@ -2,8 +2,11 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "../core/model/Clip.h"
+#include "../core/model/Project.h"
 #include "../core/timeline/Transport.h"
 #include "../core/edit/UndoStack.h"
+#include "arrangement/ArrangementView.h"
+#include "arrangement/TrackListPanel.h"
 #include "pianoroll/PianoRollView.h"
 #include "pianoroll/VelocityLane.h"
 #include "pianoroll/PedalLane.h"
@@ -24,13 +27,18 @@ class LLMClient;
 class CommandInterpreter;
 
 /**
- * Main content component that holds everything
+ * Main content component - Cubase-style multi-track DAW
+ * 
+ * Layout:
+ * - Top: Transport bar
+ * - Middle: Arrangement view (TrackListPanel + ArrangementView)
+ * - Bottom: Piano roll editor (when clip is opened)
  */
 class MainComponent : public juce::Component,
                       public juce::ScrollBar::Listener
 {
 public:
-    MainComponent(Clip& clip, UndoStack& undoStack, Transport& transport, AudioEngine& engine);
+    MainComponent(UndoStack& undoStack, Transport& transport, AudioEngine& engine);
     ~MainComponent() override;
 
     void paint(juce::Graphics& g) override;
@@ -41,22 +49,37 @@ public:
     void scrollBarMoved(juce::ScrollBar* scrollBarThatHasMoved, double newRangeStart) override;
 
 private:
-    Clip& clip;
+    void onClipRegionDoubleClicked(Track* track, ClipRegion* clipRegion);
+    void onTrackSelected(int trackIndex);
+    void closeEditor();
+
     UndoStack& undoStack;
     Transport& transport;
     AudioEngine& audioEngine;
     
-    // Phase 1: New UI Components
+    // Project (owns all tracks and clips)
+    std::unique_ptr<Project> project;
+    
+    // Current editing state
+    std::unique_ptr<Clip> currentClip;  // The clip being edited in piano roll
+    Track* currentTrack = nullptr;
+    ClipRegion* currentClipRegion = nullptr;
+    
+    // Arrangement view components
+    std::unique_ptr<TrackListPanel> trackListPanel;
+    std::unique_ptr<ArrangementView> arrangementView;
+    
+    // Piano roll editor components (shown when editing a clip)
+    std::unique_ptr<PianoRollView> pianoRollView;
+    std::unique_ptr<VelocityLane> velocityLane;
+    std::unique_ptr<PedalLane> pedalLane;
     std::unique_ptr<InfoLine> infoLine;
     std::unique_ptr<StatusLine> statusLine;
     std::unique_ptr<PianoRollToolbar> toolbar;
     std::unique_ptr<InspectorPanel> inspector;
     
-    // Existing components
+    // Other panels
     std::unique_ptr<TransportBar> transportBar;
-    std::unique_ptr<PianoRollView> pianoRollView;
-    std::unique_ptr<VelocityLane> velocityLane;
-    std::unique_ptr<PedalLane> pedalLane;
     std::unique_ptr<VstBrowserPanel> vstBrowser;
     std::unique_ptr<QuantizePanel> quantizePanel;
     std::unique_ptr<PromptBar> promptBar;
@@ -65,15 +88,10 @@ private:
     std::unique_ptr<LLMClient> llmClient;
     std::unique_ptr<CommandInterpreter> interpreter;
     
-    std::unique_ptr<juce::ScrollBar> horizontalScrollBar;
-    std::unique_ptr<juce::ScrollBar> verticalScrollBar;
-    
-    juce::StretchableLayoutManager layoutManager;
-    juce::StretchableLayoutResizerBar resizerBar1;
-    juce::StretchableLayoutResizerBar resizerBar2;
-    juce::StretchableLayoutResizerBar resizerBar3;
-    juce::StretchableLayoutResizerBar resizerBar4;
-    juce::StretchableLayoutResizerBar inspectorResizer;
+    // Layout
+    bool pianoRollVisible = false;
+    int arrangementHeight = 300;  // Height of arrangement view
+    int pianoRollHeight = 400;     // Height of piano roll when visible
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
 };

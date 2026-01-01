@@ -14,8 +14,8 @@ MainWindow::MainWindow(juce::String name, AppState& appState_)
 {
     setUsingNativeTitleBar(true);
     
-    // Create data
-    createDemoNotes();
+    // Create data - no longer need createDemoNotes() as Project will have demo data
+    // createDemoNotes();
 
     audioEngine = std::make_unique<AudioEngine>(clip, transport);
     audioPlayer.setProcessor(audioEngine.get());
@@ -23,8 +23,8 @@ MainWindow::MainWindow(juce::String name, AppState& appState_)
     auto* adm = appState.getAudioDeviceManager();
     adm->addAudioCallback(&audioPlayer);
     
-    // Create UI
-    mainComponent = std::make_unique<MainComponent>(clip, undoStack, transport, *audioEngine);
+    // Create UI (MainComponent now creates its own Project)
+    mainComponent = std::make_unique<MainComponent>(undoStack, transport, *audioEngine);
     setContentNonOwned(mainComponent.get(), true);
     
     #if JUCE_IOS || JUCE_ANDROID
