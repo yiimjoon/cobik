@@ -112,7 +112,7 @@ private:
     std::vector<int> selectedNoteIds;
     
     // Mouse interaction state
-    enum class MouseMode { None, Select, Move, ResizeEnd, ResizeStart, Lasso, Pan, DrawPending };
+    enum class MouseMode { None, Select, Move, ResizeEnd, ResizeStart, Lasso, Pan, DrawPending, DraggingPlayhead };
     MouseMode mouseMode = MouseMode::None;
     
     juce::Point<int> mouseStartPosition; // Restored

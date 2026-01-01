@@ -266,6 +266,18 @@ void PianoRollView::mouseDown(const juce::MouseEvent& e)
         }
         return;
     }
+    
+    // Check if clicking on timeline (top 25px after keyboard)
+    int timelineHeight = 25;
+    if (p.x >= KEYBOARD_WIDTH && p.y < timelineHeight)
+    {
+        // Click on timeline - set playhead position
+        int64_t clickTick = xToTick(p.x);
+        transport.setPosition(clickTick);
+        mouseMode = MouseMode::DraggingPlayhead;
+        repaint();
+        return;
+    }
 
     // Pan is always available with middle mouse button
     if (e.mods.isMiddleButtonDown())
@@ -417,6 +429,15 @@ void PianoRollView::mouseDrag(const juce::MouseEvent& e)
 {
     auto p = e.getPosition();
     lastMousePos = p; // Phase 4.5: Track mouse position for ghost rendering
+    
+    if (mouseMode == MouseMode::DraggingPlayhead)
+    {
+        // Dragging playhead on timeline
+        int64_t dragTick = xToTick(p.x);
+        transport.setPosition(dragTick);
+        repaint();
+        return;
+    }
     
     if (mouseMode == MouseMode::Pan)
     {
