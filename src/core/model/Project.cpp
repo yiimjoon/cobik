@@ -10,7 +10,7 @@ bool Project::saveToFile(const juce::File& file)
     if (!xml)
         return false;
     
-    bool success = xml->writeToFile(file, juce::XmlElement::TextFormat());
+    bool success = xml->writeToFile(file, juce::String());
     
     if (success) {
         projectFile = file;

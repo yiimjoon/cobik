@@ -13,6 +13,7 @@ MainWindow::MainWindow(juce::String name, AppState& appState_)
       appState(appState_)
 {
     setUsingNativeTitleBar(true);
+    setMenuBar(this);
     
     // Create data - no longer need createDemoNotes() as Project will have demo data
     // createDemoNotes();
@@ -79,6 +80,134 @@ void MainWindow::createDemoNotes()
 void MainWindow::closeButtonPressed()
 {
     juce::JUCEApplication::getInstance()->systemRequestedQuit();
+}
+
+juce::StringArray MainWindow::getMenuBarNames()
+{
+    return { "File", "Edit" };
+}
+
+juce::PopupMenu MainWindow::getMenuForIndex(int topLevelMenuIndex, const juce::String& menuName)
+{
+    juce::PopupMenu menu;
+    
+    if (topLevelMenuIndex == 0) // File
+    {
+        menu.addItem(1, "New Project", true);
+        menu.addItem(2, "Open Project...", true);
+        menu.addSeparator();
+        menu.addItem(3, "Save Project", mainComponent != nullptr);
+        menu.addItem(4, "Save Project As...", mainComponent != nullptr);
+        menu.addSeparator();
+        menu.addItem(5, "Export MIDI...", mainComponent != nullptr);
+        menu.addSeparator();
+        menu.addItem(99, "Quit", true);
+    }
+    else if (topLevelMenuIndex == 1) // Edit
+    {
+        menu.addItem(10, "Undo", undoStack.canUndo());
+        menu.addItem(11, "Redo", undoStack.canRedo());
+    }
+    
+    return menu;
+}
+
+void MainWindow::menuItemSelected(int menuItemID, int topLevelMenuIndex)
+{
+    switch (menuItemID)
+    {
+        case 1: // New Project
+            // TODO: Implement new project
+            break;
+            
+        case 2: // Open Project
+        {
+            auto chooser = std::make_shared<juce::FileChooser>("Open Project", juce::File(), "*.pianodaw");
+            chooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+                [this, chooser](const juce::FileChooser& fc)
+                {
+                    auto file = fc.getResult();
+                    if (file.existsAsFile() && mainComponent && mainComponent->project)
+                    {
+                        if (mainComponent->project->loadFromFile(file))
+                        {
+                            mainComponent->resized();
+                            mainComponent->repaint();
+                        }
+                        else
+                        {
+                            juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::WarningIcon,
+                                "Open Failed", "Failed to open project file.");
+                        }
+                    }
+                });
+            break;
+        }
+            
+        case 3: // Save Project
+        {
+            if (mainComponent && mainComponent->project)
+            {
+                auto file = mainComponent->project->getProjectFile();
+                if (file.existsAsFile())
+                {
+                    mainComponent->project->saveToFile(file);
+                }
+                else
+                {
+                    // If no file set, do Save As
+                    menuItemSelected(4, topLevelMenuIndex);
+                }
+            }
+            break;
+        }
+            
+        case 4: // Save Project As
+        {
+            auto chooser = std::make_shared<juce::FileChooser>("Save Project As", juce::File(), "*.pianodaw");
+            chooser->launchAsync(juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles,
+                [this, chooser](const juce::FileChooser& fc)
+                {
+                    auto file = fc.getResult();
+                    if (file != juce::File() && mainComponent && mainComponent->project)
+                    {
+                        mainComponent->project->saveToFile(file);
+                    }
+                });
+            break;
+        }
+            
+        case 5: // Export MIDI
+        {
+            auto chooser = std::make_shared<juce::FileChooser>("Export MIDI", juce::File(), "*.mid");
+            chooser->launchAsync(juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles,
+                [this, chooser](const juce::FileChooser& fc)
+                {
+                    auto file = fc.getResult();
+                    if (file != juce::File() && mainComponent && mainComponent->project)
+                    {
+                        auto& clips = mainComponent->project->getClips();
+                        if (!clips.empty())
+                        {
+                            clips[0]->exportToMidiFile(file);
+                        }
+                    }
+                });
+            break;
+        }
+            
+        case 10: // Undo
+            undoStack.undo();
+            break;
+            
+        case 11: // Redo
+            undoStack.redo();
+            break;
+            
+        case 99: // Quit
+            juce::JUCEApplication::getInstance()->systemRequestedQuit();
+            break;
+    }
 }
 
 } // namespace pianodaw

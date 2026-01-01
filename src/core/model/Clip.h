@@ -1,6 +1,7 @@
 #pragma once
 
 #include <juce_core/juce_core.h>
+#include <juce_audio_basics/juce_audio_basics.h>
 #include "Note.h"
 #include "CC.h"
 #include <vector>
@@ -147,6 +148,9 @@ public:
         
         return maxTick;
     }
+    
+    /** Export to MIDI file */
+    bool exportToMidiFile(const juce::File& file, int ppq = 480) const;
     
 private:
     juce::String name;

@@ -13,13 +13,19 @@ class MainComponent;
 class AppState;
 
 //==============================================================================
-class MainWindow : public juce::DocumentWindow
+class MainWindow : public juce::DocumentWindow,
+                   public juce::MenuBarModel
 {
 public:
     MainWindow(juce::String name, AppState& appState);
     ~MainWindow() override;
 
     void closeButtonPressed() override;
+    
+    // MenuBarModel overrides
+    juce::StringArray getMenuBarNames() override;
+    juce::PopupMenu getMenuForIndex(int topLevelMenuIndex, const juce::String& menuName) override;
+    void menuItemSelected(int menuItemID, int topLevelMenuIndex) override;
 
 private:
     // Data

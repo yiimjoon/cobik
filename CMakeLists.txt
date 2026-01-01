@@ -29,6 +29,7 @@ target_sources(PianoDAW PRIVATE
     src/app/AppState.cpp
     src/core/model/Note.h
     src/core/model/Clip.h
+    src/core/model/Clip.cpp
     src/core/model/CC.h
     src/core/model/Track.h
     src/core/model/Project.h

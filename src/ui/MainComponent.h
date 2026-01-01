@@ -47,6 +47,9 @@ public:
     
     // ScrollBar::Listener
     void scrollBarMoved(juce::ScrollBar* scrollBarThatHasMoved, double newRangeStart) override;
+    
+    // Public access to project for menu operations
+    std::unique_ptr<Project> project;
 
 private:
     void onClipRegionDoubleClicked(Track* track, ClipRegion* clipRegion);
@@ -56,9 +59,6 @@ private:
     UndoStack& undoStack;
     Transport& transport;
     AudioEngine& audioEngine;
-    
-    // Project (owns all tracks and clips)
-    std::unique_ptr<Project> project;
     
     // Current editing state
     std::unique_ptr<Clip> currentClip;  // The clip being edited in piano roll
