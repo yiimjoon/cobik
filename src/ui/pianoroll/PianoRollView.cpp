@@ -35,10 +35,10 @@ bool PianoRollView::keyPressed(const juce::KeyPress& key)
         selectedNoteIds.clear();
         
         // Add all note IDs to selection (use public getter)
-        auto allNotes = clip.getNotesInRange(0, INT64_MAX);
+        auto allNotes = clip.getNotes();
         for (const auto& note : allNotes)
         {
-            selectedNoteIds.push_back(note->id);
+            selectedNoteIds.push_back(note.id);
         }
         
         // Notify selection change

@@ -38,6 +38,9 @@ public:
     // Zoom and scroll
     void setPixelsPerTick(double newPixelsPerTick);
     double getPixelsPerTick() const { return pixelsPerTick; }
+    
+    // Drawing helpers
+    void drawLoopMarkers(juce::Graphics& g);
     void setViewportX(int newX);
     int getViewportX() const { return viewportX; }
 

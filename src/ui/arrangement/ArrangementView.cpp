@@ -26,6 +26,9 @@ void ArrangementView::paint(juce::Graphics& g)
     
     // Draw playhead LAST (맨 위)
     drawPlayhead(g);
+    
+    // Draw loop markers (L/R)
+    drawLoopMarkers(g);
 }
 
 void ArrangementView::resized()
@@ -314,6 +317,53 @@ void ArrangementView::drawPlayhead(juce::Graphics& g)
     juce::Path triangle;
     triangle.addTriangle(x - 6, 0, x + 6, 0, x, 12);
     g.fillPath(triangle);
+}
+
+void ArrangementView::drawLoopMarkers(juce::Graphics& g)
+{
+    if (!transport)
+        return;
+    
+    int64_t loopStart = project.getLoopStart();
+    int64_t loopEnd = project.getLoopEnd();
+    
+    // Don't draw if loop is disabled
+    if (loopEnd <= 0)
+        return;
+    
+    // Draw loop region highlight (light blue background)
+    int xStart = ticksToX(loopStart);
+    int xEnd = ticksToX(loopEnd);
+    
+    if (xEnd > xStart)
+    {
+        int y = headerHeight;  // Below timeline header
+        int height = getHeight() - headerHeight;
+        
+        // Highlight loop region
+        g.setColour(juce::Colour(0x33, 0x66, 0x99, 0x15));  // Light blue with alpha
+        g.fillRect(xStart, y, xEnd - xStart, height);
+        
+        // Draw loop borders
+        g.setColour(juce::Colours::lightblue);
+        g.drawRect(xStart, y, xEnd - xStart, height, 2.0f);
+    }
+    
+    // Draw L/R markers (green triangles)
+    g.setColour(juce::Colours::green);
+    g.setFont(juce::Font(10.0f));
+    
+    // L marker
+    juce::Path lMarker;
+    lMarker.addTriangle(xStart - 4, headerHeight, xStart + 4, headerHeight, xStart, headerHeight + 10);
+    g.fillPath(lMarker);
+    g.drawText("L", xStart - 6, headerHeight - 2);
+    
+    // R marker
+    juce::Path rMarker;
+    rMarker.addTriangle(xEnd - 4, headerHeight, xEnd + 4, headerHeight, xEnd, headerHeight + 10);
+    g.fillPath(rMarker);
+    g.drawText("R", xEnd - 6, headerHeight - 2);
 }
 
 void ArrangementView::timerCallback()
