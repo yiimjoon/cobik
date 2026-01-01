@@ -156,6 +156,7 @@ private:
     void updateViewEndTick();
     
     // Rendering
+    void paintTimeline(juce::Graphics& g, juce::Rectangle<int> area);
     void paintPianoKeyboard(juce::Graphics& g, juce::Rectangle<int> area);
     void paintNoteGrid(juce::Graphics& g, juce::Rectangle<int> area);
     void paintNotes(juce::Graphics& g, juce::Rectangle<int> area);

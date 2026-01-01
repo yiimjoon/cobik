@@ -68,6 +68,11 @@ void PianoRollView::paint(juce::Graphics& g)
     auto keyboardArea = bounds.removeFromLeft(KEYBOARD_WIDTH);
     auto gridArea = bounds;
     
+    // Draw timeline ruler at top
+    int timelineHeight = 25;
+    auto timelineArea = gridArea.removeFromTop(timelineHeight);
+    paintTimeline(g, timelineArea);
+    
     paintNoteGrid(g, gridArea);
     paintNotes(g, gridArea);
     paintPianoKeyboard(g, keyboardArea);
@@ -974,6 +979,65 @@ void PianoRollView::invertSelection()
     selectedNoteIds = newSelection;
     if (onSelectionChanged) onSelectionChanged(selectedNoteIds);
     repaint();
+}
+
+void PianoRollView::paintTimeline(juce::Graphics& g, juce::Rectangle<int> area)
+{
+    // Draw timeline background
+    g.setColour(juce::Colour(0xff1e1e1e));
+    g.fillRect(area);
+    
+    // Draw measure lines and numbers
+    int ticksPerMeasure = PPQ::TICKS_PER_QUARTER * 4; // 4/4 time
+    int ticksPerBeat = PPQ::TICKS_PER_QUARTER;
+    
+    int64_t startMeasure = viewStartTick / ticksPerMeasure;
+    int64_t endMeasure = (viewEndTick / ticksPerMeasure) + 1;
+    
+    for (int64_t measure = startMeasure; measure <= endMeasure; ++measure)
+    {
+        int64_t measureTick = measure * ticksPerMeasure;
+        int x = tickToX(measureTick);
+        
+        if (x >= area.getX() && x <= area.getRight())
+        {
+            // Draw measure line
+            g.setColour(juce::Colour(0xff505050));
+            g.drawVerticalLine(x, area.getY(), area.getBottom());
+            
+            // Draw measure number (1, 2, 3, ...)
+            g.setColour(juce::Colour(0xffcccccc));
+            g.drawText(juce::String(measure + 1), x + 4, area.getY() + 2, 40, area.getHeight() - 4,
+                       juce::Justification::centredLeft);
+        }
+        
+        // Draw beat lines
+        g.setColour(juce::Colour(0xff303030));
+        for (int beat = 1; beat < 4; ++beat)
+        {
+            int64_t beatTick = measureTick + beat * ticksPerBeat;
+            int beatX = tickToX(beatTick);
+            
+            if (beatX >= area.getX() && beatX <= area.getRight())
+            {
+                g.drawVerticalLine(beatX, area.getY(), area.getBottom());
+            }
+        }
+    }
+    
+    // Draw playhead in timeline
+    int64_t playheadTick = transport.getPosition();
+    if (playheadTick >= viewStartTick && playheadTick <= viewEndTick)
+    {
+        int x = tickToX(playheadTick);
+        g.setColour(juce::Colours::red);
+        g.fillRect(x - 1, area.getY(), 2, area.getHeight());
+        
+        // Draw triangle marker
+        juce::Path triangle;
+        triangle.addTriangle(x - 5, area.getY(), x + 5, area.getY(), x, area.getY() + 8);
+        g.fillPath(triangle);
+    }
 }
 
 } // namespace pianodaw
