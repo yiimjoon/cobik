@@ -341,12 +341,12 @@ void ArrangementView::drawLoopMarkers(juce::Graphics& g)
         int height = getHeight() - headerHeight;
         
         // Highlight loop region
-        g.setColour(juce::Colour(0x33, 0x66, 0x99, 0x15));  // Light blue with alpha
+        g.setColour(juce::Colour::fromRGBA(51, 102, 153, 21));  // Light blue with alpha
         g.fillRect(xStart, y, xEnd - xStart, height);
         
         // Draw loop borders
         g.setColour(juce::Colours::lightblue);
-        g.drawRect(xStart, y, xEnd - xStart, height, 2.0f);
+        g.drawRect((float)xStart, (float)y, (float)(xEnd - xStart), (float)height, 2.0f);
     }
     
     // Draw L/R markers (green triangles)
@@ -357,13 +357,13 @@ void ArrangementView::drawLoopMarkers(juce::Graphics& g)
     juce::Path lMarker;
     lMarker.addTriangle(xStart - 4, headerHeight, xStart + 4, headerHeight, xStart, headerHeight + 10);
     g.fillPath(lMarker);
-    g.drawText("L", xStart - 6, headerHeight - 2);
+    g.drawText("L", xStart - 6, headerHeight - 15, 12, 12, juce::Justification::centred);
     
     // R marker
     juce::Path rMarker;
     rMarker.addTriangle(xEnd - 4, headerHeight, xEnd + 4, headerHeight, xEnd, headerHeight + 10);
     g.fillPath(rMarker);
-    g.drawText("R", xEnd - 6, headerHeight - 2);
+    g.drawText("R", xEnd - 6, headerHeight - 15, 12, 12, juce::Justification::centred);
 }
 
 void ArrangementView::timerCallback()

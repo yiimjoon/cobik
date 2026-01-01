@@ -78,6 +78,5 @@ void Transport::timerCallback()
     
     if (onPositionChanged) onPositionChanged(currentTick);
 }
-}
 
 } // namespace pianodaw
