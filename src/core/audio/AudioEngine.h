@@ -2,6 +2,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_basics/juce_audio_basics.h>
+#include <juce_audio_devices/juce_audio_devices.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <cstdint>
 
@@ -58,6 +59,9 @@ public:
     void setRecordArmedTrack(int trackIndex) { recordArmedTrackIndex = trackIndex; }
     int getRecordArmedTrack() const { return recordArmedTrackIndex; }
     
+    // MIDI input from hardware
+    void handleIncomingMidiMessage(juce::MidiInput* source, const juce::MidiMessage& message);
+    
 private:
     Project& project;
     Transport& transport;
@@ -68,6 +72,10 @@ private:
     // Recording
     std::unique_ptr<MidiRecorder> midiRecorder;
     int recordArmedTrackIndex = -1;  // -1 = no track armed
+    
+    // Hardware MIDI input buffer
+    juce::MidiBuffer hardwareMidiBuffer;
+    juce::CriticalSection hardwareMidiLock;
     
     void setupVoices();
     void processMidiSequencer(juce::MidiBuffer& midiMessages);

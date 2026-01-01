@@ -26,6 +26,15 @@ MainWindow::MainWindow(juce::String name, AppState& appState_)
     auto* adm = appState.getAudioDeviceManager();
     adm->addAudioCallback(&audioPlayer);
     
+    // Register MIDI input callback to receive MIDI from all enabled devices
+    for (auto& device : juce::MidiInput::getAvailableDevices())
+    {
+        if (adm->isMidiInputDeviceEnabled(device.identifier))
+        {
+            adm->addMidiInputDeviceCallback(device.identifier, this);
+        }
+    }
+    
     // Create UI (pass project to MainComponent)
     mainComponent = std::make_unique<MainComponent>(*project, undoStack, transport, *audioEngine);
     setContentNonOwned(mainComponent.get(), true);
@@ -42,6 +51,12 @@ MainWindow::MainWindow(juce::String name, AppState& appState_)
 
 MainWindow::~MainWindow()
 {
+    // Unregister MIDI callbacks
+    auto* adm = appState.getAudioDeviceManager();
+    for (auto& device : juce::MidiInput::getAvailableDevices())
+    {
+        adm->removeMidiInputDeviceCallback(device.identifier, this);
+    }
 }
 
 void MainWindow::createDemoProject()
@@ -222,6 +237,15 @@ void MainWindow::menuItemSelected(int menuItemID, int topLevelMenuIndex)
         case 99: // Quit
             juce::JUCEApplication::getInstance()->systemRequestedQuit();
             break;
+    }
+}
+
+void MainWindow::handleIncomingMidiMessage(juce::MidiInput* source, const juce::MidiMessage& message)
+{
+    // Forward MIDI input to AudioEngine
+    if (audioEngine)
+    {
+        audioEngine->handleIncomingMidiMessage(source, message);
     }
 }
 

@@ -14,7 +14,8 @@ class AppState;
 
 //==============================================================================
 class MainWindow : public juce::DocumentWindow,
-                   public juce::MenuBarModel
+                   public juce::MenuBarModel,
+                   private juce::MidiInputCallback
 {
 public:
     MainWindow(juce::String name, AppState& appState);
@@ -28,6 +29,8 @@ public:
     void menuItemSelected(int menuItemID, int topLevelMenuIndex) override;
 
 private:
+    // MidiInputCallback override
+    void handleIncomingMidiMessage(juce::MidiInput* source, const juce::MidiMessage& message) override;
     // Data
     AppState& appState;
     std::unique_ptr<Project> project;  // Owns the project

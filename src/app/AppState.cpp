@@ -1,4 +1,5 @@
 #include "AppState.h"
+#include "../ui/panels/DebugLogWindow.h"
 
 namespace pianodaw {
 
@@ -43,10 +44,19 @@ void AppState::initializeAudioDevice()
     audioDeviceManager.setMidiInputDeviceEnabled(juce::String(), true);  // Enable default
     
     // Enable all available MIDI devices
-    for (auto& device : juce::MidiInput::getAvailableDevices())
+    auto devices = juce::MidiInput::getAvailableDevices();
+    DebugLogWindow::addLog("=== MIDI Device Detection ===");
+    DebugLogWindow::addLog("Found " + juce::String(devices.size()) + " MIDI device(s)");
+    
+    for (auto& device : devices)
     {
         audioDeviceManager.setMidiInputDeviceEnabled(device.identifier, true);
         DBG("Enabled MIDI device: " << device.name);
+        DebugLogWindow::addLog("Enabled: " + device.name);
+    }
+    
+    if (devices.isEmpty()) {
+        DebugLogWindow::addLog("WARNING: No MIDI devices found!");
     }
 }
 

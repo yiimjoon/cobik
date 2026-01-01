@@ -35,8 +35,14 @@ MainComponent::MainComponent(Project& project_, UndoStack& undoStack_, Transport
     };
     
     transportBar->onStopDoubleClick = [this]() {
+        DebugLogWindow::addLog("MainComponent: onStopDoubleClick callback called!");
+        DebugLogWindow::addLog("MainComponent: Current position = " + juce::String(transport.getPosition()));
         transport.stop();
         transport.setPosition(0);  // 원위치
+        DebugLogWindow::addLog("MainComponent: Position set to " + juce::String(transport.getPosition()));
+        arrangementView->repaint();  // 화면 업데이트
+        if (pianoRollView) pianoRollView->repaint();  // 피아노롤도 업데이트
+        DebugLogWindow::addLog("MainComponent: Repaint called");
         stopRecording();
     };
     
@@ -135,6 +141,19 @@ void MainComponent::resized()
 
 bool MainComponent::keyPressed(const juce::KeyPress& key)
 {
+    // Spacebar: Play/Stop toggle (Cubase style)
+    if (key == juce::KeyPress::spaceKey) {
+        if (transport.isPlaying()) {
+            DebugLogWindow::addLog("Spacebar: Stopping playback");
+            transport.stop();
+            stopRecording();
+        } else {
+            DebugLogWindow::addLog("Spacebar: Starting playback");
+            transport.start();
+        }
+        return true;
+    }
+    
     // Close piano roll editor on Escape
     if (key == juce::KeyPress::escapeKey && pianoRollVisible) {
         closeEditor();

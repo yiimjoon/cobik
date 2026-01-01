@@ -318,10 +318,18 @@ void ArrangementView::drawPlayhead(juce::Graphics& g)
 
 void ArrangementView::timerCallback()
 {
-    // 재생 중일 때만 repaint (30fps)
-    if (transport && transport->isPlaying())
+    if (!transport)
+        return;
+    
+    // Check if position changed (for stop double-click, timeline click, etc.)
+    static int64_t lastTick = -1;
+    int64_t currentTick = transport->getPosition();
+    
+    // Repaint if playing OR if position changed
+    if (transport->isPlaying() || currentTick != lastTick)
     {
         repaint();
+        lastTick = currentTick;
     }
 }
 

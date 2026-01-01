@@ -5,6 +5,7 @@
 #include "../model/Track.h"
 #include "../timeline/Transport.h"
 #include "../timeline/PPQ.h"
+#include "../../ui/panels/DebugLogWindow.h"
 #include <cmath>
 
 namespace pianodaw {
@@ -141,10 +142,29 @@ void AudioEngine::releaseResources() {}
 
 void AudioEngine::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
+    // Debug: Check if MIDI is being received
+    if (!midiMessages.isEmpty()) {
+        static int counter = 0;
+        if (++counter % 30 == 0) {  // Log every 30th message to avoid spam
+            DBG("AudioEngine: Received " << midiMessages.getNumEvents() << " MIDI events");
+            DebugLogWindow::addLog("MIDI: Received " + juce::String(midiMessages.getNumEvents()) + " events (playing=" + juce::String(transport.isPlaying() ? "YES" : "NO") + ")");
+        }
+    }
+    
     juce::ScopedLock sl(project.getLock());
+    
+    // Merge hardware MIDI input
+    {
+        juce::ScopedLock hwLock(hardwareMidiLock);
+        midiMessages.addEvents(hardwareMidiBuffer, 0, buffer.getNumSamples(), 0);
+        hardwareMidiBuffer.clear();
+    }
     
     // Copy incoming MIDI for recording
     juce::MidiBuffer incomingMidi = midiMessages;
+    
+    // Always merge incoming MIDI (keyboard input should always work)
+    // This allows MIDI keyboard to play even when stopped
     
     // Merge UI MIDI events (piano roll preview notes)
     {
@@ -463,6 +483,15 @@ void AudioEngine::loadPluginList()
             knownPluginList.recreateFromXml(*xml);
         }
     }
+}
+
+void AudioEngine::handleIncomingMidiMessage(juce::MidiInput* source, const juce::MidiMessage& message)
+{
+    // Add incoming MIDI to buffer (thread-safe)
+    juce::ScopedLock sl(hardwareMidiLock);
+    hardwareMidiBuffer.addEvent(message, 0);
+    
+    DebugLogWindow::addLog("MIDI Hardware: " + message.getDescription());
 }
 
 } // namespace pianodaw

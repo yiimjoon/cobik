@@ -1,4 +1,5 @@
 #include "TransportBar.h"
+#include "../panels/DebugLogWindow.h"
 
 namespace pianodaw {
 
@@ -27,8 +28,10 @@ void TransportBar::setupButtons()
         
         // 더블클릭 감지 (500ms 이내)
         if (currentTime - lastStopClickTime < 500) {
+            DebugLogWindow::addLog("Stop button: DOUBLE-CLICK detected - resetting to position 0");
             if (onStopDoubleClick) onStopDoubleClick();
         } else {
+            DebugLogWindow::addLog("Stop button: Single click");
             if (onStop) onStop();
         }
         
