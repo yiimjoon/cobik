@@ -1,0 +1,44 @@
+# Build directories
+build/
+cmake-build-*/
+out/
+
+# IDE files
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.sln.docstates
+
+# Compiled files
+*.exe
+*.app
+*.o
+*.obj
+*.dll
+*.so
+*.dylib
+
+# JUCE-specific
+JuceLibraryCode/
+Builds/
+
+# macOS
+.DS_Store
+*.dSYM
+
+# Windows
+Thumbs.db
+
+# Build logs
+build_*.log
+build_*.txt
+cmake_*.log
+cmake_*.txt
+*.log
+final_*.txt
+find_*.txt
+last_*.txt
+modules_list.txt
+phase*_build.log
