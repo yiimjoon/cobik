@@ -1,5 +1,6 @@
 #include "Transport.h"
 #include "PPQ.h"
+#include "../../ui/panels/DebugLogWindow.h"
 
 namespace pianodaw {
 
@@ -72,9 +73,11 @@ void Transport::timerCallback()
     if (looping && currentTick >= loopEnd)
     {
         currentTick = loopStart + (currentTick % (loopEnd - loopStart));
+        DebugLogWindow::addLog("Transport: Loop! Position reset to " + juce::String(loopStart) + ", tick " + juce::String(currentTick % (loopEnd - loopStart)));
     }
-
+    
     if (onPositionChanged) onPositionChanged(currentTick);
+}
 }
 
 } // namespace pianodaw
