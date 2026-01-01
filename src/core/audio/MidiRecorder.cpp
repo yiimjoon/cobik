@@ -65,7 +65,7 @@ void MidiRecorder::processMidiInput(const juce::MidiBuffer& midiMessages, int64_
         if (msg.isNoteOn())
         {
             int noteNumber = msg.getNoteNumber();
-            float velocity = msg.getFloatVelocity();
+            int velocity = msg.getVelocity();  // Get 0-127 velocity, not float
             handleNoteOn(noteNumber, velocity, currentTick);
         }
         else if (msg.isNoteOff())
@@ -101,7 +101,7 @@ int64_t MidiRecorder::quantizeTick(int64_t tick) const
     }
 }
 
-void MidiRecorder::handleNoteOn(int noteNumber, float velocity, int64_t tick)
+void MidiRecorder::handleNoteOn(int noteNumber, int velocity, int64_t tick)
 {
     if (!targetClip)
         return;
@@ -112,7 +112,7 @@ void MidiRecorder::handleNoteOn(int noteNumber, float velocity, int64_t tick)
     // Store active note
     ActiveNote active;
     active.pitch = noteNumber;
-    active.velocity = velocity;
+    active.velocity = velocity;  // Now int 0-127
     active.startTick = recordTick;
     activeNotes[noteNumber] = active;
 }

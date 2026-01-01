@@ -79,7 +79,7 @@ private:
     struct ActiveNote
     {
         int pitch;
-        float velocity;
+        int velocity;  // Changed from float to int (0-127)
         int64_t startTick;
     };
     std::map<int, ActiveNote> activeNotes;  // key = MIDI note number
@@ -89,7 +89,7 @@ private:
     
     // Helper methods
     int64_t quantizeTick(int64_t tick) const;
-    void handleNoteOn(int noteNumber, float velocity, int64_t tick);
+    void handleNoteOn(int noteNumber, int velocity, int64_t tick);  // Changed from float to int
     void handleNoteOff(int noteNumber, int64_t tick);
     void clearRegion(int64_t startTick, int64_t endTick);
     

@@ -262,16 +262,22 @@ void MainComponent::onClipRegionDoubleClicked(Track* track, ClipRegion* clipRegi
     if (!statusLine) {
         statusLine = std::make_unique<StatusLine>();
         addAndMakeVisible(statusLine.get());
+    } else {
+        statusLine->setVisible(true);
     }
     
     if (!toolbar) {
         toolbar = std::make_unique<PianoRollToolbar>();
         addAndMakeVisible(toolbar.get());
+    } else {
+        toolbar->setVisible(true);
     }
     
     if (!inspector) {
         inspector = std::make_unique<InspectorPanel>();
         addAndMakeVisible(inspector.get());
+    } else {
+        inspector->setVisible(true);
     }
     
     pianoRollVisible = true;
