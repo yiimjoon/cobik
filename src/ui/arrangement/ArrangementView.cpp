@@ -126,13 +126,11 @@ void ArrangementView::mouseWheelMove(const juce::MouseEvent& event, const juce::
         double zoomFactor = 1.0 + wheel.deltaY * 0.5;
         setPixelsPerTick(pixelsPerTick * zoomFactor);
     }
-    else if (event.mods.isAltDown()) {
-        // Alt+Wheel = Horizontal scroll
-        int scrollDelta = static_cast<int>(wheel.deltaY * 100);
-        setViewportX(viewportX - scrollDelta);
-    }
     else {
-        // Wheel = Vertical scroll (handled by parent scroll container)
+        // Wheel = Horizontal scroll (default behavior for timeline)
+        int scrollDelta = static_cast<int>(wheel.deltaY * 200);  // Increased sensitivity
+        setViewportX(viewportX - scrollDelta);
+        DebugLogWindow::addLog("ArrangementView: Scroll viewportX=" + juce::String(viewportX));
     }
 }
 
