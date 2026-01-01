@@ -41,6 +41,7 @@ public:
     // View state callbacks
     std::function<void(int64_t, double)> onViewChanged;
     std::function<void(const std::vector<int>&)> onSelectionChanged;
+    std::function<void()> onCloseButtonClicked;
     
     int64_t getViewStartTick() const { return viewStartTick; }
     double getPixelsPerTick() const { return pixelsPerTick; }

@@ -89,6 +89,27 @@ void PianoRollView::paint(juce::Graphics& g)
         g.setColour(juce::Colours::white.withAlpha(0.5f));
         g.drawRect(lassoRect);
     }
+    
+    // Close button (top-right corner)
+    int closeButtonSize = 20;
+    int closeButtonMargin = 5;
+    juce::Rectangle<int> closeButtonRect(
+        getWidth() - closeButtonSize - closeButtonMargin,
+        closeButtonMargin,
+        closeButtonSize,
+        closeButtonSize
+    );
+    
+    // Draw close button background
+    g.setColour(juce::Colours::darkred.withAlpha(0.7f));
+    g.fillRoundedRectangle(closeButtonRect.toFloat(), 3.0f);
+    
+    // Draw X symbol
+    g.setColour(juce::Colours::white);
+    g.drawLine(closeButtonRect.getX() + 5, closeButtonRect.getY() + 5,
+               closeButtonRect.getRight() - 5, closeButtonRect.getBottom() - 5, 2.0f);
+    g.drawLine(closeButtonRect.getRight() - 5, closeButtonRect.getY() + 5,
+               closeButtonRect.getX() + 5, closeButtonRect.getBottom() - 5, 2.0f);
 }
 
 void PianoRollView::paintPianoKeyboard(juce::Graphics& g, juce::Rectangle<int> area)
@@ -221,6 +242,25 @@ void PianoRollView::mouseDown(const juce::MouseEvent& e)
 {
     auto p = e.getPosition();
     mouseStartPosition = p;
+    
+    // Check if clicking close button
+    int closeButtonSize = 20;
+    int closeButtonMargin = 5;
+    juce::Rectangle<int> closeButtonRect(
+        getWidth() - closeButtonSize - closeButtonMargin,
+        closeButtonMargin,
+        closeButtonSize,
+        closeButtonSize
+    );
+    
+    if (closeButtonRect.contains(p))
+    {
+        if (onCloseButtonClicked)
+        {
+            onCloseButtonClicked();
+        }
+        return;
+    }
 
     // Pan is always available with middle mouse button
     if (e.mods.isMiddleButtonDown())

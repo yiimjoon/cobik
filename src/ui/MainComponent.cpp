@@ -231,6 +231,12 @@ void MainComponent::onClipRegionDoubleClicked(Track* track, ClipRegion* clipRegi
     pianoRollView.reset();
     DebugLogWindow::addLog("MainComponent: Creating PianoRollView...");
     pianoRollView = std::make_unique<PianoRollView>(editClip, undoStack, transport, audioEngine);
+    
+    // Set close button callback
+    pianoRollView->onCloseButtonClicked = [this]() {
+        closeEditor();
+    };
+    
     addAndMakeVisible(pianoRollView.get());
     DebugLogWindow::addLog("MainComponent: PianoRollView created");
     
