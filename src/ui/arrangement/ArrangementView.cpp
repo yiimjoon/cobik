@@ -384,6 +384,48 @@ void ArrangementView::timerCallback()
 
 bool ArrangementView::keyPressed(const juce::KeyPress& key)
 {
+    // Shift+A: Auto-loop from selection (Cubase style)
+    if (key.getModifiers().isShiftDown() && (key.getTextCharacter() == 'a' || key.getTextCharacter() == 'A'))
+    {
+        if (selectedClipRegion && selectedTrack)
+        {
+            // Set loop to match clip region bounds
+            int64_t loopStart = selectedClipRegion->startTick;
+            int64_t loopEnd = selectedClipRegion->getEndTick();
+            
+            project.setLoopStart(loopStart);
+            project.setLoopEnd(loopEnd);
+            
+            // Also update Transport if available
+            if (transport)
+            {
+                transport->setLoopRange(loopStart, loopEnd);
+                transport->setLooping(true);  // Enable looping
+            }
+            
+            repaint();
+            DebugLogWindow::addLog("ArrangementView: Auto-loop from clip (" + 
+                                 juce::String(loopStart) + " - " + juce::String(loopEnd) + ")");
+            return true;
+        }
+        else
+        {
+            // No clip selected - clear loop region
+            project.setLoopStart(0);
+            project.setLoopEnd(0);
+            
+            if (transport)
+            {
+                transport->setLoopRange(0, 0);
+                transport->setLooping(false);  // Disable looping
+            }
+            
+            repaint();
+            DebugLogWindow::addLog("ArrangementView: Loop region cleared (Shift+A with no selection)");
+            return true;
+        }
+    }
+    
     // H: Zoom in (Cubase style)
     if (key.getTextCharacter() == 'h' || key.getTextCharacter() == 'H')
     {
