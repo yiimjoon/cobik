@@ -141,6 +141,34 @@ void MainComponent::resized()
 
 bool MainComponent::keyPressed(const juce::KeyPress& key)
 {
+    // Ctrl+Z: Undo
+    if (key.getModifiers().isCommandDown() && !key.getModifiers().isShiftDown() && key.getTextCharacter() == 'z') {
+        if (undoStack.canUndo()) {
+            undoStack.undo();
+            DebugLogWindow::addLog("Undo performed");
+            // Repaint all views to reflect undo changes
+            arrangementView->repaint();
+            if (pianoRollView) pianoRollView->repaint();
+            if (velocityLane) velocityLane->repaint();
+            if (pedalLane) pedalLane->repaint();
+        }
+        return true;
+    }
+    
+    // Ctrl+Shift+Z: Redo
+    if (key.getModifiers().isCommandDown() && key.getModifiers().isShiftDown() && key.getTextCharacter() == 'z') {
+        if (undoStack.canRedo()) {
+            undoStack.redo();
+            DebugLogWindow::addLog("Redo performed");
+            // Repaint all views to reflect redo changes
+            arrangementView->repaint();
+            if (pianoRollView) pianoRollView->repaint();
+            if (velocityLane) velocityLane->repaint();
+            if (pedalLane) pedalLane->repaint();
+        }
+        return true;
+    }
+    
     // Spacebar: Play/Stop toggle (Cubase style)
     if (key == juce::KeyPress::spaceKey) {
         if (transport.isPlaying()) {

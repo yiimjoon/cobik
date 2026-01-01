@@ -8,6 +8,7 @@ ArrangementView::ArrangementView(Project& proj, Transport* trans)
     : project(proj), transport(trans)
 {
     setOpaque(false);  // 반투명하게 - 그리드가 보이도록
+    setWantsKeyboardFocus(true);  // Enable keyboard input
     
     // 30fps로 재생바 업데이트
     startTimer(33);
@@ -381,6 +382,83 @@ void ArrangementView::timerCallback()
         repaint();
         lastTick = currentTick;
     }
+}
+
+bool ArrangementView::keyPressed(const juce::KeyPress& key)
+{
+    // H: Zoom in (Cubase style)
+    if (key.getTextCharacter() == 'h' || key.getTextCharacter() == 'H')
+    {
+        setPixelsPerTick(pixelsPerTick * 1.2);  // Zoom in 20%
+        repaint();
+        DebugLogWindow::addLog("ArrangementView: Zoom in (H)");
+        return true;
+    }
+    
+    // G: Zoom out (Cubase style)
+    if (key.getTextCharacter() == 'g' || key.getTextCharacter() == 'G')
+    {
+        setPixelsPerTick(pixelsPerTick / 1.2);  // Zoom out 20%
+        repaint();
+        DebugLogWindow::addLog("ArrangementView: Zoom out (G)");
+        return true;
+    }
+    
+    // Shift+F: Zoom to fit (show all content)
+    if (key.getModifiers().isShiftDown() && (key.getTextCharacter() == 'f' || key.getTextCharacter() == 'F'))
+    {
+        // Find the rightmost clip end position
+        int64_t maxTick = 0;
+        for (int i = 0; i < project.getNumTracks(); ++i)
+        {
+            Track* track = project.getTrack(i);
+            if (track)
+            {
+                for (const auto& region : track->getClipRegions())
+                {
+                    int64_t endTick = region.getEndTick();
+                    if (endTick > maxTick)
+                        maxTick = endTick;
+                }
+            }
+        }
+        
+        // Calculate zoom to fit all content in viewport
+        if (maxTick > 0)
+        {
+            int viewportWidth = getWidth();
+            double newPixelsPerTick = (viewportWidth * 0.9) / maxTick;  // 90% of viewport width
+            setPixelsPerTick(newPixelsPerTick);
+            setViewportX(0);  // Reset scroll to start
+            repaint();
+            DebugLogWindow::addLog("ArrangementView: Zoom to fit (Shift+F)");
+        }
+        return true;
+    }
+    
+    // Delete/Backspace: Delete selected clip
+    if (key.isKeyCode(juce::KeyPress::deleteKey) || key.isKeyCode(juce::KeyPress::backspaceKey))
+    {
+        if (selectedClipRegion && selectedTrack)
+        {
+            int regionId = selectedClipRegion->id;
+            juce::String clipName = selectedClipRegion->clip ? selectedClipRegion->clip->getName() : "Unknown";
+            
+            // Remove the clip region from the track
+            selectedTrack->removeClipRegion(regionId);
+            
+            // Clear selection
+            selectedClipRegion = nullptr;
+            
+            // Repaint to show changes
+            repaint();
+            
+            DebugLogWindow::addLog("ArrangementView: Deleted clip region '" + clipName + "' (ID: " + juce::String(regionId) + ")");
+            return true;
+        }
+    }
+    
+    return false;
 }
 
 } // namespace pianodaw
