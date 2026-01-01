@@ -97,6 +97,17 @@ public:
     bool isModified() const { return modified; }
     void setModified(bool m) { modified = m; }
     
+    // Loop markers
+    int64_t getLoopStart() const { return loopStart; }
+    int64_t getLoopEnd() const { return loopEnd; }
+    void setLoopStart(int64_t tick) { loopStart = std::max((int64_t)0, tick); modified = true; }
+    void setLoopEnd(int64_t tick) { loopEnd = std::max(loopStart, tick); modified = true; }
+    void setLoopRange(int64_t start, int64_t end) { 
+        loopStart = std::max((int64_t)0, start);
+        loopEnd = std::max(loopStart, end);
+        modified = true;
+    }
+    
     // File I/O
     bool saveToFile(const juce::File& file);
     bool loadFromFile(const juce::File& file);
@@ -111,6 +122,10 @@ private:
     int timeSignatureNumerator;
     int timeSignatureDenominator;
     int64_t projectLengthTicks = PPQ::TICKS_PER_QUARTER * 4 * 32; // 32 bars default
+    
+    // Loop markers
+    int64_t loopStart = 0;
+    int64_t loopEnd = PPQ::TICKS_PER_QUARTER * 4 * 4;  // 4 bars default
     
     std::vector<std::unique_ptr<Track>> tracks;
     std::vector<std::unique_ptr<Clip>> clips;  // Clip pool
