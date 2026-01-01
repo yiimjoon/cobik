@@ -23,6 +23,9 @@ public:
     const juce::String& getName() const { return name; }
     void setName(const juce::String& newName) { name = newName; }
     
+    // === Note access (for select all) ===
+    const std::vector<Note>& getNotes() const { return notes; }
+    
     // === Note management ===
     
     /** Add note and return its ID */

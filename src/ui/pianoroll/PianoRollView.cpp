@@ -3,6 +3,7 @@
 #include "../../core/timeline/Transport.h"
 #include "../../core/edit/UndoStack.h"
 #include "../../core/edit/EditCommands.h"
+#include "../panels/DebugLogWindow.h"
 #include <algorithm>
 
 namespace pianodaw {
@@ -27,6 +28,26 @@ PianoRollView::~PianoRollView() {}
 
 bool PianoRollView::keyPressed(const juce::KeyPress& key)
 {
+    // Ctrl+A: Select all notes (Cubase style)
+    if (key.getModifiers().isCommandDown() && key.getTextCharacter() == 'a')
+    {
+        juce::ScopedLock sl(clip.getLock());
+        selectedNoteIds.clear();
+        
+        // Add all note IDs to selection (use public getter)
+        auto allNotes = clip.getNotesInRange(0, INT64_MAX);
+        for (const auto& note : allNotes)
+        {
+            selectedNoteIds.push_back(note->id);
+        }
+        
+        // Notify selection change
+        if (onSelectionChanged) onSelectionChanged(selectedNoteIds);
+        
+        DebugLogWindow::addLog("PianoRoll: Selected all " + juce::String(selectedNoteIds.size()) + " notes");
+        return true;
+    }
+    
     if (key.isKeyCode(juce::KeyPress::deleteKey) || key.isKeyCode(juce::KeyPress::backspaceKey))
     {
         if (!selectedNoteIds.empty())
