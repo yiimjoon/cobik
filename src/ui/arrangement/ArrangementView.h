@@ -6,6 +6,8 @@
 
 namespace pianodaw {
 
+class Transport;
+
 /**
  * ArrangementView - Timeline view showing tracks and clip regions (Cubase-style)
  * 
@@ -15,11 +17,13 @@ namespace pianodaw {
  * - Click to select clip region
  * - Double-click to open in PianoRollEditor
  * - Horizontal/vertical scrolling and zooming
+ * - Playhead visualization
  */
-class ArrangementView : public juce::Component
+class ArrangementView : public juce::Component,
+                        private juce::Timer
 {
 public:
-    ArrangementView(Project& project);
+    ArrangementView(Project& project, Transport* transport = nullptr);
     ~ArrangementView() override = default;
 
     // Component overrides
@@ -28,6 +32,7 @@ public:
     void mouseDown(const juce::MouseEvent& event) override;
     void mouseDoubleClick(const juce::MouseEvent& event) override;
     void mouseDrag(const juce::MouseEvent& event) override;
+    void mouseUp(const juce::MouseEvent& event) override;
     void mouseWheelMove(const juce::MouseEvent& event, const juce::MouseWheelDetails& wheel) override;
 
     // Zoom and scroll
@@ -62,9 +67,14 @@ private:
     void drawGrid(juce::Graphics& g);
     void drawTracks(juce::Graphics& g);
     void drawClipRegion(juce::Graphics& g, Track* track, ClipRegion* region, int trackY);
+    void drawPlayhead(juce::Graphics& g);
+    
+    // Timer callback
+    void timerCallback() override;
 
     // Reference to project
     Project& project;
+    Transport* transport = nullptr;  // For playhead position
 
     // View state
     double pixelsPerTick = 0.05;  // Zoom level (pixels per tick)
@@ -78,6 +88,7 @@ private:
 
     // Drag state
     bool isDraggingClip = false;
+    bool isDraggingPlayhead = false;
     int dragStartX = 0;
     int dragStartTick = 0;
 

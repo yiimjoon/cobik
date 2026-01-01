@@ -78,6 +78,19 @@ public:
         return result;
     }
     
+    /** Remove notes in pitch and time range (used for recording replace mode) */
+    void removeNotesInRange(int minPitch, int maxPitch, int64_t startTick, int64_t endTick)
+    {
+        juce::ScopedLock sl(lock);
+        notes.erase(
+            std::remove_if(notes.begin(), notes.end(),
+                [minPitch, maxPitch, startTick, endTick](const Note& n) {
+                    return n.pitch >= minPitch && n.pitch <= maxPitch &&
+                           n.overlaps(startTick, endTick);
+                }),
+            notes.end());
+    }
+    
     /** Get all notes */
     std::vector<Note>& getNotes() { return notes; }
     const std::vector<Note>& getNotes() const { return notes; }

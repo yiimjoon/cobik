@@ -38,7 +38,7 @@ class MainComponent : public juce::Component,
                       public juce::ScrollBar::Listener
 {
 public:
-    MainComponent(UndoStack& undoStack, Transport& transport, AudioEngine& engine);
+    MainComponent(Project& project, UndoStack& undoStack, Transport& transport, AudioEngine& engine);
     ~MainComponent() override;
 
     void paint(juce::Graphics& g) override;
@@ -49,12 +49,16 @@ public:
     void scrollBarMoved(juce::ScrollBar* scrollBarThatHasMoved, double newRangeStart) override;
     
     // Public access to project for menu operations
-    std::unique_ptr<Project> project;
+    Project& project;
 
 private:
     void onClipRegionDoubleClicked(Track* track, ClipRegion* clipRegion);
     void onTrackSelected(int trackIndex);
     void closeEditor();
+    
+    // Recording
+    void startRecording();
+    void stopRecording();
 
     UndoStack& undoStack;
     Transport& transport;
@@ -64,6 +68,10 @@ private:
     std::unique_ptr<Clip> currentClip;  // The clip being edited in piano roll
     Track* currentTrack = nullptr;
     ClipRegion* currentClipRegion = nullptr;
+    
+    // Recording state
+    int recordArmedTrackIndex = -1;
+    bool isRecording = false;
     
     // Arrangement view components
     std::unique_ptr<TrackListPanel> trackListPanel;

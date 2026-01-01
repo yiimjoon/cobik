@@ -2,7 +2,7 @@
 
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <juce_gui_extra/juce_gui_extra.h>
-#include "../core/model/Clip.h"
+#include "../core/model/Project.h"
 #include "../core/edit/UndoStack.h"
 #include "../core/timeline/Transport.h"
 #include "../core/audio/AudioEngine.h"
@@ -30,7 +30,7 @@ public:
 private:
     // Data
     AppState& appState;
-    Clip clip;
+    std::unique_ptr<Project> project;  // Owns the project
     UndoStack undoStack;
     Transport transport;
     std::unique_ptr<AudioEngine> audioEngine;
@@ -39,7 +39,7 @@ private:
     // UI Components
     std::unique_ptr<MainComponent> mainComponent;
     
-    void createDemoNotes();
+    void createDemoProject();
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainWindow)
 };

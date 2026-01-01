@@ -36,11 +36,13 @@ public:
     // Callbacks
     std::function<void(int trackIndex)> onTrackSelected;
     std::function<void()> onTracksChanged;
+    std::function<void(int trackIndex, bool armed)> onRecordArmChanged;
 
 private:
     struct TrackRow {
         int trackIndex = -1;
         juce::Rectangle<int> bounds;
+        std::unique_ptr<juce::TextButton> recordArmButton;
         std::unique_ptr<juce::TextButton> soloButton;
         std::unique_ptr<juce::TextButton> muteButton;
     };

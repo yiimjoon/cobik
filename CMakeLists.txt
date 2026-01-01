@@ -51,6 +51,8 @@ target_sources(PianoDAW PRIVATE
     src/core/ai/MusicTheory.h
     src/core/audio/AudioEngine.h
     src/core/audio/AudioEngine.cpp
+    src/core/audio/MidiRecorder.h
+    src/core/audio/MidiRecorder.cpp
     src/ui/pianoroll/PianoRollView.h
     src/ui/pianoroll/PianoRollView.cpp
     src/ui/pianoroll/VelocityLane.h
@@ -73,6 +75,8 @@ target_sources(PianoDAW PRIVATE
     src/ui/panels/PromptBar.cpp
     src/ui/panels/PluginEditorWindow.h
     src/ui/panels/TheoryToolbar.h
+    src/ui/panels/DebugLogWindow.h
+    src/ui/panels/DebugLogWindow.cpp
     src/ui/editor/InfoLine.h
     src/ui/editor/StatusLine.h
     src/ui/editor/PianoRollToolbar.h

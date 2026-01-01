@@ -8,16 +8,23 @@
 namespace pianodaw {
 
 class Clip;
+class Project;
 class Transport;
+class MidiRecorder;
 
 /**
  * AudioEngine - Main audio processing unit
  * Standard JUCE AudioProcessor implementation
+ * 
+ * Supports:
+ * - Multi-track playback from Project
+ * - MIDI recording via MidiRecorder
+ * - VST3 instrument hosting per track (future)
  */
 class AudioEngine : public juce::AudioProcessor
 {
 public:
-    AudioEngine(Clip& clip, Transport& transport);
+    AudioEngine(Project& project, Transport& transport);
     ~AudioEngine() override;
 
     // AudioProcessor overrides
@@ -46,15 +53,25 @@ public:
     void getStateInformation(juce::MemoryBlock& destData) override;
     void setStateInformation(const void* data, int sizeInBytes) override;
 
+    // Recording
+    MidiRecorder& getMidiRecorder() { return *midiRecorder; }
+    void setRecordArmedTrack(int trackIndex) { recordArmedTrackIndex = trackIndex; }
+    int getRecordArmedTrack() const { return recordArmedTrackIndex; }
+    
 private:
-    Clip& clip;
+    Project& project;
     Transport& transport;
     juce::Synthesiser synth;
     
     int64_t lastProcessedTick = -1;
     
+    // Recording
+    std::unique_ptr<MidiRecorder> midiRecorder;
+    int recordArmedTrackIndex = -1;  // -1 = no track armed
+    
     void setupVoices();
     void processMidiSequencer(juce::MidiBuffer& midiMessages);
+    void processMidiRecording(const juce::MidiBuffer& midiMessages, int64_t currentTick);
     
     // VST Hosting
     juce::AudioPluginFormatManager pluginFormatManager;

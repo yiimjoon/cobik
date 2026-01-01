@@ -2,41 +2,57 @@
 #include "../core/edit/UndoStack.h"
 #include "../core/timeline/PPQ.h"
 #include "../core/timeline/Transport.h"
+#include "../core/audio/MidiRecorder.h"
 #include "../core/ai/LLMClient.h"
 #include "../core/ai/CommandInterpreter.h"
+#include "panels/DebugLogWindow.h"
 
 namespace pianodaw {
 
-MainComponent::MainComponent(UndoStack& undoStack_, Transport& transport_, AudioEngine& engine_)
-    : undoStack(undoStack_), transport(transport_), audioEngine(engine_)
+MainComponent::MainComponent(Project& project_, UndoStack& undoStack_, Transport& transport_, AudioEngine& engine_)
+    : project(project_), undoStack(undoStack_), transport(transport_), audioEngine(engine_)
 {
-    // Create project
-    project = std::make_unique<Project>("New Project");
-    
-    // Add a default MIDI track with a default clip
-    Track* defaultTrack = project->addTrack("Track 1", Track::Type::MIDI);
-    defaultTrack->setColour(juce::Colours::blue);
-    
-    // Create a default clip and add it to the project
-    Clip* clipPtr = project->addClip("Clip 1");
-    
-    // Add clip region to track (4 bars starting at 0)
-    ClipRegion region(clipPtr, 0, PPQ::TICKS_PER_QUARTER * 16);
-    defaultTrack->addClipRegion(region);
-    
     // Create transport bar
     transportBar = std::make_unique<TransportBar>();
     addAndMakeVisible(transportBar.get());
     
     // Create track list panel
-    trackListPanel = std::make_unique<TrackListPanel>(*project);
+    trackListPanel = std::make_unique<TrackListPanel>(project);
     addAndMakeVisible(trackListPanel.get());
     
-    // Create arrangement view
-    arrangementView = std::make_unique<ArrangementView>(*project);
+    // Create arrangement view (with Transport for playhead)
+    arrangementView = std::make_unique<ArrangementView>(project, &transport);
     addAndMakeVisible(arrangementView.get());
     
-    // Setup callbacks
+    // Setup transport bar callbacks
+    transportBar->onPlay = [this]() {
+        transport.start();
+    };
+    
+    transportBar->onStop = [this]() {
+        transport.stop();
+        stopRecording();  // Stop recording if active
+    };
+    
+    transportBar->onStopDoubleClick = [this]() {
+        transport.stop();
+        transport.setPosition(0);  // 원위치
+        stopRecording();
+    };
+    
+    transportBar->onLoopToggle = [this](bool looping) {
+        transport.setLooping(looping);
+    };
+    
+    transportBar->onRecordToggle = [this](bool recording) {
+        if (recording) {
+            startRecording();  // 즉시 녹음 시작 (자동 재생 포함)
+        } else {
+            stopRecording();
+        }
+    };
+    
+    // Setup track list panel callbacks
     trackListPanel->onTrackSelected = [this](int trackIndex) {
         onTrackSelected(trackIndex);
     };
@@ -45,6 +61,12 @@ MainComponent::MainComponent(UndoStack& undoStack_, Transport& transport_, Audio
         arrangementView->repaint();
     };
     
+    trackListPanel->onRecordArmChanged = [this](int trackIndex, bool armed) {
+        recordArmedTrackIndex = armed ? trackIndex : -1;
+        audioEngine.setRecordArmedTrack(recordArmedTrackIndex);
+    };
+    
+    // Setup arrangement view callbacks
     arrangementView->onClipRegionDoubleClick = [this](Track* track, ClipRegion* clipRegion) {
         onClipRegionDoubleClicked(track, clipRegion);
     };
@@ -69,7 +91,7 @@ void MainComponent::resized()
     // Transport bar at top (50px)
     transportBar->setBounds(bounds.removeFromTop(50));
     
-    if (pianoRollVisible && currentClip) {
+    if (pianoRollVisible && currentClipRegion) {
         // Split view: Arrangement + Piano Roll
         auto arrangementArea = bounds.removeFromTop(arrangementHeight);
         
@@ -129,7 +151,22 @@ void MainComponent::scrollBarMoved(juce::ScrollBar* scrollBarThatHasMoved, doubl
 
 void MainComponent::onClipRegionDoubleClicked(Track* track, ClipRegion* clipRegion)
 {
-    if (!track || !clipRegion || !clipRegion->clip) return;
+    DebugLogWindow::addLog("MainComponent: onClipRegionDoubleClicked called");
+    
+    if (!track) {
+        DebugLogWindow::addLog("MainComponent: ERROR - track is NULL");
+        return;
+    }
+    if (!clipRegion) {
+        DebugLogWindow::addLog("MainComponent: ERROR - clipRegion is NULL");
+        return;
+    }
+    if (!clipRegion->clip) {
+        DebugLogWindow::addLog("MainComponent: ERROR - clipRegion->clip is NULL");
+        return;
+    }
+    
+    DebugLogWindow::addLog("MainComponent: Opening piano roll for: " + clipRegion->clip->getName());
     
     currentTrack = track;
     currentClipRegion = clipRegion;
@@ -137,30 +174,38 @@ void MainComponent::onClipRegionDoubleClicked(Track* track, ClipRegion* clipRegi
     // Use the actual clip from the clip region (not a copy)
     currentClip.reset();  // We'll edit the clip directly
     
-    // Create piano roll editor components if not exist
-    // They all need a Clip reference, so use the clip from the region
+    // ALWAYS recreate piano roll components with new clip reference
+    // (Otherwise it keeps editing the old clip)
     Clip& editClip = *clipRegion->clip;
     
-    if (!pianoRollView) {
-        pianoRollView = std::make_unique<PianoRollView>(editClip, undoStack, transport, audioEngine);
-        addAndMakeVisible(pianoRollView.get());
-    }
+    DebugLogWindow::addLog("MainComponent: Creating piano roll view...");
     
-    if (!velocityLane) {
-        velocityLane = std::make_unique<VelocityLane>(editClip, undoStack);
-        addAndMakeVisible(velocityLane.get());
-    }
+    // Recreate piano roll view
+    pianoRollView.reset();
+    DebugLogWindow::addLog("MainComponent: Creating PianoRollView...");
+    pianoRollView = std::make_unique<PianoRollView>(editClip, undoStack, transport, audioEngine);
+    addAndMakeVisible(pianoRollView.get());
+    DebugLogWindow::addLog("MainComponent: PianoRollView created");
     
-    if (!pedalLane) {
-        pedalLane = std::make_unique<PedalLane>(editClip, undoStack);
-        addAndMakeVisible(pedalLane.get());
-    }
+    // Recreate velocity lane
+    velocityLane.reset();
+    velocityLane = std::make_unique<VelocityLane>(editClip, undoStack);
+    addAndMakeVisible(velocityLane.get());
+    DebugLogWindow::addLog("MainComponent: VelocityLane created");
     
-    if (!infoLine) {
-        infoLine = std::make_unique<InfoLine>(editClip);
-        addAndMakeVisible(infoLine.get());
-    }
+    // Recreate pedal lane
+    pedalLane.reset();
+    pedalLane = std::make_unique<PedalLane>(editClip, undoStack);
+    addAndMakeVisible(pedalLane.get());
+    DebugLogWindow::addLog("MainComponent: PedalLane created");
     
+    // Recreate info line
+    infoLine.reset();
+    infoLine = std::make_unique<InfoLine>(editClip);
+    addAndMakeVisible(infoLine.get());
+    DebugLogWindow::addLog("MainComponent: InfoLine created");
+    
+    // Status line, toolbar, inspector don't depend on clip - create once
     if (!statusLine) {
         statusLine = std::make_unique<StatusLine>();
         addAndMakeVisible(statusLine.get());
@@ -177,7 +222,9 @@ void MainComponent::onClipRegionDoubleClicked(Track* track, ClipRegion* clipRegi
     }
     
     pianoRollVisible = true;
+    DebugLogWindow::addLog("MainComponent: Calling resized()...");
     resized();
+    DebugLogWindow::addLog("MainComponent: Piano roll opened successfully!");
 }
 
 void MainComponent::onTrackSelected(int trackIndex)
@@ -203,6 +250,84 @@ void MainComponent::closeEditor()
     currentClipRegion = nullptr;
     
     resized();
+}
+
+void MainComponent::startRecording()
+{
+    // Check if a track is armed
+    if (recordArmedTrackIndex < 0 || recordArmedTrackIndex >= project.getNumTracks())
+    {
+        juce::AlertWindow::showMessageBoxAsync(
+            juce::AlertWindow::WarningIcon,
+            "Cannot Record",
+            "Please arm a track first by clicking the 'R' button."
+        );
+        transportBar->setRecording(false);
+        return;
+    }
+    
+    // Get the armed track
+    Track* track = project.getTrack(recordArmedTrackIndex);
+    if (!track)
+    {
+        transportBar->setRecording(false);
+        return;
+    }
+    
+    // Create a new clip for recording or use existing one
+    Clip* recordClip = nullptr;
+    ClipRegion* recordRegion = nullptr;
+    
+    // Check if there's already a clip at the current position
+    int64_t currentTick = transport.getPosition();
+    for (auto& region : track->getClipRegions())
+    {
+        if (currentTick >= region.startTick && currentTick < region.getEndTick())
+        {
+            recordClip = region.clip;
+            recordRegion = const_cast<ClipRegion*>(&region);
+            break;
+        }
+    }
+    
+    // If no existing clip, create a new one
+    if (!recordClip)
+    {
+        recordClip = project.addClip("Recording");
+        
+        // Create a clip region (4 bars long by default)
+        int64_t clipLength = PPQ::TICKS_PER_QUARTER * 4 * 4; // 4 bars
+        ClipRegion newRegion(recordClip, currentTick, clipLength);
+        track->addClipRegion(newRegion);
+        
+        arrangementView->repaint();
+    }
+    
+    // Start recording on the MidiRecorder
+    audioEngine.getMidiRecorder().startRecording(recordClip, currentTick);
+    
+    isRecording = true;
+    
+    // Start playback if not already playing
+    if (!transport.isPlaying())
+    {
+        transport.start();
+    }
+}
+
+void MainComponent::stopRecording()
+{
+    if (!isRecording)
+        return;
+    
+    // Stop the MidiRecorder
+    audioEngine.getMidiRecorder().stopRecording();
+    
+    isRecording = false;
+    transportBar->setRecording(false);
+    
+    // Refresh arrangement view to show recorded notes
+    arrangementView->repaint();
 }
 
 } // namespace pianodaw

@@ -87,18 +87,45 @@ void TrackListPanel::buttonClicked(juce::Button* button)
         }
     }
     else {
-        // Check solo/mute buttons
+        // Check record arm, solo, mute buttons
         for (int i = 0; i < trackRows.size(); ++i) {
             auto* row = trackRows[i];
             Track* track = project.getTrack(row->trackIndex);
             if (!track) continue;
             
-            if (button == row->soloButton.get()) {
+            if (button == row->recordArmButton.get()) {
+                // Toggle record arm - only one track can be armed at a time
+                bool newArmed = !row->recordArmButton->getToggleState();
+                
+                // Disarm all other tracks
+                if (newArmed) {
+                    for (auto* otherRow : trackRows) {
+                        if (otherRow != row && otherRow->recordArmButton) {
+                            otherRow->recordArmButton->setToggleState(false, juce::dontSendNotification);
+                            otherRow->recordArmButton->setColour(juce::TextButton::buttonColourId, juce::Colour(0xff404040));
+                        }
+                    }
+                }
+                
+                row->recordArmButton->setToggleState(newArmed, juce::dontSendNotification);
+                row->recordArmButton->setColour(juce::TextButton::buttonColourId, 
+                    newArmed ? juce::Colours::red : juce::Colour(0xff404040));
+                
+                if (onRecordArmChanged)
+                    onRecordArmChanged(row->trackIndex, newArmed);
+                
+                repaint();
+            }
+            else if (button == row->soloButton.get()) {
                 track->setSolo(!track->isSolo());
+                row->soloButton->setColour(juce::TextButton::buttonColourId,
+                    track->isSolo() ? juce::Colours::yellow : juce::Colour(0xff404040));
                 repaint();
             }
             else if (button == row->muteButton.get()) {
                 track->setMute(!track->isMuted());
+                row->muteButton->setColour(juce::TextButton::buttonColourId,
+                    track->isMuted() ? juce::Colours::grey : juce::Colour(0xff404040));
                 repaint();
             }
         }
@@ -174,7 +201,12 @@ void TrackListPanel::updateTrackRows()
         int y = headerHeight + i * trackHeight;
         row->bounds = juce::Rectangle<int>(0, y, getWidth(), trackHeight);
         
-        // Create solo/mute buttons
+        // Create record arm, solo, mute buttons
+        row->recordArmButton = std::make_unique<juce::TextButton>("R");
+        row->recordArmButton->setBounds(getWidth() - 105, y + 48, 30, 24);
+        row->recordArmButton->addListener(this);
+        addAndMakeVisible(row->recordArmButton.get());
+        
         row->soloButton = std::make_unique<juce::TextButton>("S");
         row->soloButton->setBounds(getWidth() - 70, y + 48, 30, 24);
         row->soloButton->addListener(this);
@@ -188,10 +220,11 @@ void TrackListPanel::updateTrackRows()
         // Update button colors based on track state
         Track* track = project.getTrack(i);
         if (track) {
+            row->recordArmButton->setColour(juce::TextButton::buttonColourId, juce::Colour(0xff404040));
             row->soloButton->setColour(juce::TextButton::buttonColourId, 
-                track->isSolo() ? juce::Colours::yellow.darker(0.3f) : juce::Colour(0xff404040));
+                track->isSolo() ? juce::Colours::yellow : juce::Colour(0xff404040));
             row->muteButton->setColour(juce::TextButton::buttonColourId,
-                track->isMuted() ? juce::Colours::red.darker(0.3f) : juce::Colour(0xff404040));
+                track->isMuted() ? juce::Colours::grey : juce::Colour(0xff404040));
         }
         
         trackRows.add(row);

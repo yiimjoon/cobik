@@ -1,23 +1,31 @@
 #include "ArrangementView.h"
+#include "../../core/timeline/Transport.h"
+#include "../panels/DebugLogWindow.h"
 
 namespace pianodaw {
 
-ArrangementView::ArrangementView(Project& proj)
-    : project(proj)
+ArrangementView::ArrangementView(Project& proj, Transport* trans)
+    : project(proj), transport(trans)
 {
-    setOpaque(true);
+    setOpaque(false);  // 반투명하게 - 그리드가 보이도록
+    
+    // 30fps로 재생바 업데이트
+    startTimer(33);
 }
 
 void ArrangementView::paint(juce::Graphics& g)
 {
-    // Background
+    // Background - 약간 투명
     g.fillAll(juce::Colour(0xff2b2b2b));
 
-    // Draw grid
+    // Draw grid FIRST (배경)
     drawGrid(g);
 
-    // Draw tracks
+    // Draw tracks and clips (반투명)
     drawTracks(g);
+    
+    // Draw playhead LAST (맨 위)
+    drawPlayhead(g);
 }
 
 void ArrangementView::resized()
@@ -27,6 +35,15 @@ void ArrangementView::resized()
 
 void ArrangementView::mouseDown(const juce::MouseEvent& event)
 {
+    // 헤더 영역 클릭 시 재생바 이동
+    if (event.y < headerHeight && transport) {
+        int64_t clickTick = xToTicks(event.x);
+        transport->setPosition(clickTick);
+        isDraggingPlayhead = true;
+        repaint();
+        return;
+    }
+    
     auto hit = findClipRegionAt(event.x, event.y);
     
     selectedTrack = hit.track;
@@ -43,15 +60,37 @@ void ArrangementView::mouseDown(const juce::MouseEvent& event)
 
 void ArrangementView::mouseDoubleClick(const juce::MouseEvent& event)
 {
+    DebugLogWindow::addLog("ArrangementView: mouseDoubleClick at x=" + juce::String(event.x) + " y=" + juce::String(event.y));
+    
     auto hit = findClipRegionAt(event.x, event.y);
     
-    if (hit.clipRegion && onClipRegionDoubleClick) {
-        onClipRegionDoubleClick(hit.track, hit.clipRegion);
+    if (hit.clipRegion) {
+        DebugLogWindow::addLog("ArrangementView: Clip found: " + (hit.clipRegion->clip ? hit.clipRegion->clip->getName() : "NULL CLIP"));
+        
+        if (onClipRegionDoubleClick) {
+            DebugLogWindow::addLog("ArrangementView: Calling callback...");
+            onClipRegionDoubleClick(hit.track, hit.clipRegion);
+            DebugLogWindow::addLog("ArrangementView: Callback returned");
+        } else {
+            DebugLogWindow::addLog("ArrangementView: ERROR - Callback is NULL!");
+        }
+    } else {
+        DebugLogWindow::addLog("ArrangementView: No clip found at position");
     }
 }
 
 void ArrangementView::mouseDrag(const juce::MouseEvent& event)
 {
+    // Playhead dragging (헤더 영역에서 드래그)
+    if (isDraggingPlayhead && transport) {
+        int64_t dragTick = xToTicks(event.x);
+        if (dragTick >= 0) {
+            transport->setPosition(dragTick);
+            repaint();
+        }
+        return;
+    }
+    
     if (isDraggingClip && selectedClipRegion) {
         // Calculate new position with snap to grid (snap to quarter notes for now)
         int deltaX = event.x - dragStartX;
@@ -68,6 +107,12 @@ void ArrangementView::mouseDrag(const juce::MouseEvent& event)
             repaint();
         }
     }
+}
+
+void ArrangementView::mouseUp(const juce::MouseEvent& event)
+{
+    isDraggingClip = false;
+    isDraggingPlayhead = false;
 }
 
 void ArrangementView::mouseWheelMove(const juce::MouseEvent& event, const juce::MouseWheelDetails& wheel)
@@ -250,6 +295,33 @@ void ArrangementView::drawClipRegion(juce::Graphics& g, Track* track, ClipRegion
     if (region->muted) {
         g.setColour(juce::Colours::red.withAlpha(0.5f));
         g.fillRoundedRectangle(x1 + 2, trackY + 4, width - 4, trackHeight - 8, 4.0f);
+    }
+}
+
+void ArrangementView::drawPlayhead(juce::Graphics& g)
+{
+    if (!transport)
+        return;
+    
+    int64_t currentTick = transport->getPosition();
+    int x = ticksToX(currentTick);
+    
+    // Playhead line (빨간색 재생바)
+    g.setColour(juce::Colours::red);
+    g.drawLine(x, 0, x, getHeight(), 2.0f);
+    
+    // Playhead triangle (위쪽 삼각형)
+    juce::Path triangle;
+    triangle.addTriangle(x - 6, 0, x + 6, 0, x, 12);
+    g.fillPath(triangle);
+}
+
+void ArrangementView::timerCallback()
+{
+    // 재생 중일 때만 repaint (30fps)
+    if (transport && transport->isPlaying())
+    {
+        repaint();
     }
 }
 

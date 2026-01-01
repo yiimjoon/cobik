@@ -1,5 +1,8 @@
 #include "AudioEngine.h"
+#include "MidiRecorder.h"
 #include "../model/Clip.h"
+#include "../model/Project.h"
+#include "../model/Track.h"
 #include "../timeline/Transport.h"
 #include "../timeline/PPQ.h"
 #include <cmath>
@@ -97,14 +100,19 @@ struct SimplePianoSound : public juce::SynthesiserSound
 
 //==============================================================================
 
-AudioEngine::AudioEngine(Clip& clip_, Transport& transport_)
-    : AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
-      clip(clip_), transport(transport_)
+AudioEngine::AudioEngine(Project& project_, Transport& transport_)
+    : AudioProcessor(BusesProperties()
+        .withInput("Input", juce::AudioChannelSet::stereo(), true)  // For audio recording (future)
+        .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
+      project(project_), transport(transport_)
 {
     pluginFormatManager.addDefaultFormats();
     mainGraph = std::make_unique<juce::AudioProcessorGraph>();
     loadPluginList();
     setupVoices();
+    
+    // Create MIDI recorder
+    midiRecorder = std::make_unique<MidiRecorder>();
 }
 
 AudioEngine::~AudioEngine() {}
@@ -133,9 +141,12 @@ void AudioEngine::releaseResources() {}
 
 void AudioEngine::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
-    juce::ScopedLock sl(clip.getLock());
+    juce::ScopedLock sl(project.getLock());
     
-    // Merge UI MIDI events
+    // Copy incoming MIDI for recording
+    juce::MidiBuffer incomingMidi = midiMessages;
+    
+    // Merge UI MIDI events (piano roll preview notes)
     {
         juce::ScopedLock uiLock(uiMidiLock);
         midiMessages.addEvents(uiMidiBuffer, 0, buffer.getNumSamples(), 0);
@@ -144,7 +155,12 @@ void AudioEngine::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffe
 
     if (transport.isPlaying())
     {
+        // Generate MIDI from all tracks
         processMidiSequencer(midiMessages);
+        
+        // Record incoming MIDI if armed
+        int64_t currentTick = transport.getPosition();
+        processMidiRecording(incomingMidi, currentTick);
     }
     else if (lastProcessedTick != -1)
     {
@@ -193,23 +209,67 @@ void AudioEngine::processMidiSequencer(juce::MidiBuffer& midiMessages)
         lastProcessedTick = currentTick;
     }
 
-    auto& notes = clip.getNotes();
-    for (const auto& note : notes)
+    // Play all tracks
+    for (const auto& track : project.getTracks())
     {
-        // Note On
-        if (note.startTick >= lastProcessedTick && note.startTick < currentTick)
-        {
-            midiMessages.addEvent(juce::MidiMessage::noteOn(1, note.pitch, (juce::uint8)note.velocity), 0);
-        }
+        // Skip muted tracks
+        if (track->isMuted())
+            continue;
         
-        // Note Off
-        if (note.endTick >= lastProcessedTick && note.endTick < currentTick)
+        // Play each clip region in the track
+        for (const auto& clipRegion : track->getClipRegions())
         {
-            midiMessages.addEvent(juce::MidiMessage::noteOff(1, note.pitch), 0);
+            Clip* clip = clipRegion.clip;
+            if (!clip)
+                continue;
+            
+            int64_t clipStartTick = clipRegion.startTick;
+            int64_t clipOffset = clipRegion.offsetTick;
+            int64_t clipLengthTick = clipRegion.lengthTick;
+            int64_t clipEndTick = clipStartTick + clipLengthTick;
+            
+            // Check if we're currently playing this clip region
+            if (currentTick < clipStartTick || currentTick >= clipEndTick)
+                continue;
+            
+            // Play notes from this clip
+            auto& notes = clip->getNotes();
+            for (const auto& note : notes)
+            {
+                // Convert note time to timeline time (add clip start + offset)
+                int64_t noteAbsoluteStart = clipStartTick + (note.startTick - clipOffset);
+                int64_t noteAbsoluteEnd = clipStartTick + (note.endTick - clipOffset);
+                
+                // Check if note is within clip region bounds
+                if (noteAbsoluteStart < clipStartTick || noteAbsoluteEnd > clipEndTick)
+                    continue;
+                
+                // Note On
+                if (noteAbsoluteStart >= lastProcessedTick && noteAbsoluteStart < currentTick)
+                {
+                    midiMessages.addEvent(juce::MidiMessage::noteOn(1, note.pitch, (juce::uint8)note.velocity), 0);
+                }
+                
+                // Note Off
+                if (noteAbsoluteEnd >= lastProcessedTick && noteAbsoluteEnd < currentTick)
+                {
+                    midiMessages.addEvent(juce::MidiMessage::noteOff(1, note.pitch), 0);
+                }
+            }
         }
     }
 
     lastProcessedTick = currentTick;
+}
+
+void AudioEngine::processMidiRecording(const juce::MidiBuffer& midiMessages, int64_t currentTick)
+{
+    // Only record if a track is armed and we have a recorder
+    if (recordArmedTrackIndex < 0 || !midiRecorder || !transport.isPlaying())
+        return;
+    
+    // Pass MIDI to recorder
+    midiRecorder->processMidiInput(midiMessages, currentTick);
 }
 
 juce::AudioProcessorEditor* AudioEngine::createEditor() { return nullptr; }

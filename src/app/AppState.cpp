@@ -21,7 +21,7 @@ void AppState::initializeAudioDevice()
 {
     // Set default number of input/output channels
     juce::String audioError = audioDeviceManager.initialise(
-        0,      // numInputChannelsNeeded (0 for piano DAW)
+        2,      // numInputChannelsNeeded (2 for MIDI recording + future audio recording)
         2,      // numOutputChannelsNeeded (stereo out)
         nullptr,
         true,   // selectDefaultDeviceOnFailure
@@ -37,6 +37,16 @@ void AppState::initializeAudioDevice()
             "Audio Device Error",
             "Could not initialize audio device:\n" + audioError
         );
+    }
+    
+    // Enable ALL MIDI input devices (for keyboard support)
+    audioDeviceManager.setMidiInputDeviceEnabled(juce::String(), true);  // Enable default
+    
+    // Enable all available MIDI devices
+    for (auto& device : juce::MidiInput::getAvailableDevices())
+    {
+        audioDeviceManager.setMidiInputDeviceEnabled(device.identifier, true);
+        DBG("Enabled MIDI device: " << device.name);
     }
 }
 
