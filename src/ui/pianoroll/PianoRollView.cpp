@@ -107,6 +107,18 @@ bool PianoRollView::keyPressed(const juce::KeyPress& key)
         return true;
     }
     
+    // Number keys 1-8: Set grid size
+    if (key.getTextCharacter() >= '1' && key.getTextCharacter() <= '8')
+    {
+        int gridIndex = key.getTextCharacter() - '1';
+        GridSize newGridSize = static_cast<GridSize>(gridIndex);
+        setGridSize(newGridSize);
+        
+        const char* gridNames[] = {"Whole", "Half", "Quarter", "Eighth", "Sixteenth", "32nd", "8th Triplet", "16th Triplet"};
+        DebugLogWindow::addLog("PianoRoll: Grid size set to " + juce::String(gridNames[gridIndex]));
+        return true;
+    }
+    
     if (key.isKeyCode(juce::KeyPress::deleteKey) || key.isKeyCode(juce::KeyPress::backspaceKey))
     {
         if (!selectedNoteIds.empty())
