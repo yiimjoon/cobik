@@ -28,6 +28,65 @@ PianoRollView::~PianoRollView() {}
 
 bool PianoRollView::keyPressed(const juce::KeyPress& key)
 {
+    // Ctrl+C: Copy selected notes
+    if (key.getModifiers().isCommandDown() && key.getTextCharacter() == 'c')
+    {
+        if (!selectedNoteIds.empty())
+        {
+            juce::ScopedLock sl(clip.getLock());
+            clipboard.clear();
+            
+            auto allNotes = clip.getNotes();
+            for (const auto& note : allNotes)
+            {
+                if (std::find(selectedNoteIds.begin(), selectedNoteIds.end(), note.id) != selectedNoteIds.end())
+                {
+                    clipboard.push_back(note);
+                }
+            }
+            
+            DebugLogWindow::addLog("PianoRoll: Copied " + juce::String(clipboard.size()) + " notes");
+            return true;
+        }
+    }
+    
+    // Ctrl+V: Paste notes
+    if (key.getModifiers().isCommandDown() && key.getTextCharacter() == 'v')
+    {
+        if (!clipboard.empty())
+        {
+            juce::ScopedLock sl(clip.getLock());
+            
+            // Find the earliest note in clipboard to use as reference
+            int64_t minStartTick = clipboard[0].startTick;
+            for (const auto& note : clipboard)
+            {
+                if (note.startTick < minStartTick)
+                    minStartTick = note.startTick;
+            }
+            
+            // Paste at current playhead position
+            int64_t pasteOffset = transport.getPosition() - minStartTick;
+            
+            selectedNoteIds.clear();
+            for (const auto& note : clipboard)
+            {
+                Note newNote = note;
+                newNote.startTick += pasteOffset;
+                newNote.endTick += pasteOffset;
+                
+                int newId = clip.addNote(newNote);
+                selectedNoteIds.push_back(newId);
+            }
+            
+            if (onSelectionChanged) onSelectionChanged(selectedNoteIds);
+            repaint();
+            
+            DebugLogWindow::addLog("PianoRoll: Pasted " + juce::String(clipboard.size()) + " notes at tick " + juce::String(transport.getPosition()));
+            return true;
+        }
+    }
+    
     // Ctrl+A: Select all notes (Cubase style)
     if (key.getModifiers().isCommandDown() && key.getTextCharacter() == 'a')
     {

@@ -111,6 +111,9 @@ private:
     // Selection state
     std::vector<int> selectedNoteIds;
     
+    // Clipboard for copy/paste
+    std::vector<Note> clipboard;
+    
     // Mouse interaction state
     enum class MouseMode { None, Select, Move, ResizeEnd, ResizeStart, Lasso, Pan, DrawPending, DraggingPlayhead };
     MouseMode mouseMode = MouseMode::None;
