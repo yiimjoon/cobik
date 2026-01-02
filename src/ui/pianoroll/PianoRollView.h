@@ -42,6 +42,7 @@ public:
     std::function<void(int64_t, double)> onViewChanged;
     std::function<void(const std::vector<int>&)> onSelectionChanged;
     std::function<void()> onCloseButtonClicked;
+    std::function<void(int64_t, int)> onMousePositionChanged; // tick, pitch
     
     int64_t getViewStartTick() const { return viewStartTick; }
     double getPixelsPerTick() const { return pixelsPerTick; }

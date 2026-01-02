@@ -937,6 +937,63 @@ private:
 };
 
 /**
+ * SplitNoteCommand - Split a note at a specific tick position
+ */
+class SplitNoteCommand : public Command
+{
+public:
+    SplitNoteCommand(Clip& clip_, int noteId_, int64_t splitTick_)
+        : clip(clip_), noteId(noteId_), splitTick(splitTick_) {}
+
+    void execute() override
+    {
+        juce::ScopedLock sl(clip.getLock());
+        
+        auto* note = clip.findNote(noteId);
+        if (!note || splitTick <= note->startTick || splitTick >= note->endTick)
+            return; // Invalid split position
+        
+        // Store original note for undo
+        originalNote = *note;
+        
+        // Create second half note
+        Note secondNote = *note;
+        secondNote.startTick = splitTick;
+        secondNote.endTick = originalNote.endTick;
+        secondNoteId = clip.addNote(secondNote);
+        
+        // Modify first note to end at split point
+        note->endTick = splitTick;
+    }
+
+    void undo() override
+    {
+        juce::ScopedLock sl(clip.getLock());
+        
+        // Remove the second note
+        if (secondNoteId != -1)
+        {
+            clip.removeNote(secondNoteId);
+        }
+        
+        // Restore original note
+        if (auto* note = clip.findNote(noteId))
+        {
+            *note = originalNote;
+        }
+    }
+    
+    std::string getDescription() const override { return "Split Note"; }
+
+private:
+    Clip& clip;
+    int noteId;
+    int64_t splitTick;
+    Note originalNote;
+    int secondNoteId = -1;
+};
+
+/**
  * HumanizeCommand - Add random variation to timing and velocity
  */
 class HumanizeCommand : public Command

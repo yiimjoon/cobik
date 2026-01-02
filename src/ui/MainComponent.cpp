@@ -1,5 +1,6 @@
 #include "MainComponent.h"
 #include "../core/edit/UndoStack.h"
+#include "../core/edit/EditCommands.h"
 #include "../core/timeline/PPQ.h"
 #include "../core/timeline/Transport.h"
 #include "../core/audio/MidiRecorder.h"
@@ -241,6 +242,23 @@ void MainComponent::onClipRegionDoubleClicked(Track* track, ClipRegion* clipRegi
         closeEditor();
     };
     
+    // Set selection changed callback (will be connected to InfoLine later)
+    pianoRollView->onSelectionChanged = [this](const std::vector<int>& selectedIds) {
+        if (infoLine) {
+            infoLine->setSelectedNotes(selectedIds);
+        }
+        if (statusLine) {
+            // TODO: Update chord detection based on selection
+        }
+    };
+    
+    // Set mouse position changed callback for status line
+    pianoRollView->onMousePositionChanged = [this](int64_t tick, int pitch) {
+        if (statusLine) {
+            statusLine->updatePosition(tick, pitch);
+        }
+    };
+    
     addAndMakeVisible(pianoRollView.get());
     DebugLogWindow::addLog("MainComponent: PianoRollView created");
     
@@ -262,6 +280,58 @@ void MainComponent::onClipRegionDoubleClicked(Track* track, ClipRegion* clipRegi
     addAndMakeVisible(infoLine.get());
     DebugLogWindow::addLog("MainComponent: InfoLine created");
     
+    // Connect InfoLine callbacks
+    infoLine->onStartChanged = [this, &editClip](int noteId, int64_t newStart) {
+        auto* note = editClip.findNote(noteId);
+        if (note && newStart >= 0 && newStart < note->endTick) {
+            undoStack.execute(std::make_unique<ResizeNoteCommand>(editClip, noteId, newStart, note->endTick));
+            pianoRollView->repaint();
+            infoLine->setSelectedNotes({noteId});
+        }
+    };
+    
+    infoLine->onEndChanged = [this, &editClip](int noteId, int64_t newEnd) {
+        auto* note = editClip.findNote(noteId);
+        if (note && newEnd > note->startTick) {
+            undoStack.execute(std::make_unique<ResizeNoteCommand>(editClip, noteId, note->startTick, newEnd));
+            pianoRollView->repaint();
+            infoLine->setSelectedNotes({noteId});
+        }
+    };
+    
+    infoLine->onLengthChanged = [this, &editClip](int noteId, int64_t newLength) {
+        auto* note = editClip.findNote(noteId);
+        if (note && newLength > 0) {
+            int64_t newEnd = note->startTick + newLength;
+            undoStack.execute(std::make_unique<ResizeNoteCommand>(editClip, noteId, note->startTick, newEnd));
+            pianoRollView->repaint();
+            infoLine->setSelectedNotes({noteId});
+        }
+    };
+    
+    infoLine->onPitchChanged = [this, &editClip](int noteId, int newPitch) {
+        auto* note = editClip.findNote(noteId);
+        if (note && newPitch >= 0 && newPitch <= 127) {
+            int semitones = newPitch - note->pitch;
+            undoStack.execute(std::make_unique<TransposeCommand>(editClip, std::vector<int>{noteId}, semitones));
+            pianoRollView->repaint();
+            infoLine->setSelectedNotes({noteId});
+        }
+    };
+    
+    infoLine->onVelocityChanged = [this, &editClip](int noteId, int newVelocity) {
+        // For multi-selection (InfoLine allows batch velocity edit)
+        const auto& selectedIds = pianoRollView->getSelectedNoteIds();
+        std::vector<int> targetIds = selectedIds.empty() ? std::vector<int>{noteId} : selectedIds;
+        
+        if (newVelocity >= 1 && newVelocity <= 127) {
+            undoStack.execute(std::make_unique<SetVelocityCommand>(editClip, targetIds, newVelocity));
+            pianoRollView->repaint();
+            velocityLane->repaint();
+            infoLine->setSelectedNotes(targetIds);
+        }
+    };
+    
     // Status line, toolbar, inspector don't depend on clip - create once
     if (!statusLine) {
         statusLine = std::make_unique<StatusLine>();
@@ -273,6 +343,57 @@ void MainComponent::onClipRegionDoubleClicked(Track* track, ClipRegion* clipRegi
     if (!toolbar) {
         toolbar = std::make_unique<PianoRollToolbar>();
         addAndMakeVisible(toolbar.get());
+        
+        // Connect toolbar callbacks
+        toolbar->onToolChanged = [this](EditorTool tool) {
+            if (pianoRollView) {
+                pianoRollView->setCurrentTool(tool);
+                DebugLogWindow::addLog("Tool changed to: " + juce::String((int)tool));
+            }
+        };
+        
+        toolbar->onSnapChanged = [this](bool enabled) {
+            if (pianoRollView) {
+                pianoRollView->setSnapEnabled(enabled);
+                if (statusLine) {
+                    statusLine->updateSnap(enabled, toolbar->getGridSize() == GridSize::Whole ? "1/1" :
+                                                     toolbar->getGridSize() == GridSize::Half ? "1/2" :
+                                                     toolbar->getGridSize() == GridSize::Quarter ? "1/4" :
+                                                     toolbar->getGridSize() == GridSize::Eighth ? "1/8" :
+                                                     toolbar->getGridSize() == GridSize::Sixteenth ? "1/16" : "1/32");
+                }
+                DebugLogWindow::addLog("Snap: " + juce::String(enabled ? "ON" : "OFF"));
+            }
+        };
+        
+        toolbar->onGridSizeChanged = [this](GridSize size) {
+            if (pianoRollView) {
+                pianoRollView->setGridSize(size);
+                if (statusLine) {
+                    statusLine->updateSnap(toolbar->isSnapEnabled(), 
+                                          size == GridSize::Whole ? "1/1" :
+                                          size == GridSize::Half ? "1/2" :
+                                          size == GridSize::Quarter ? "1/4" :
+                                          size == GridSize::Eighth ? "1/8" :
+                                          size == GridSize::Sixteenth ? "1/16" : "1/32");
+                }
+                DebugLogWindow::addLog("Grid size changed");
+            }
+        };
+        
+        toolbar->onHorizontalZoomChanged = [this](double zoom) {
+            if (pianoRollView) {
+                pianoRollView->setPixelsPerTick(zoom);
+                DebugLogWindow::addLog("H-Zoom: " + juce::String(zoom));
+            }
+        };
+        
+        toolbar->onVerticalZoomChanged = [this](double zoom) {
+            if (pianoRollView) {
+                pianoRollView->setPixelsPerKey(zoom);
+                DebugLogWindow::addLog("V-Zoom: " + juce::String(zoom));
+            }
+        };
     } else {
         toolbar->setVisible(true);
     }
@@ -280,6 +401,78 @@ void MainComponent::onClipRegionDoubleClicked(Track* track, ClipRegion* clipRegi
     if (!inspector) {
         inspector = std::make_unique<InspectorPanel>();
         addAndMakeVisible(inspector.get());
+        
+        // Connect inspector callbacks
+        inspector->onQuantize = [this, &editClip]() {
+            const auto& selectedIds = pianoRollView->getSelectedNoteIds();
+            if (selectedIds.empty()) {
+                juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon, "Quantize", "No notes selected.");
+                return;
+            }
+            
+            QuantizeParams params;
+            params.gridTicks = gridSizeToTicks(toolbar->getGridSize());
+            params.strength = 1.0f; // TODO: Get from inspector slider
+            params.swing = 0.5f;    // TODO: Get from inspector slider
+            
+            undoStack.execute(std::make_unique<QuantizeCommand>(editClip, selectedIds, params));
+            pianoRollView->repaint();
+            DebugLogWindow::addLog("Quantized " + juce::String(selectedIds.size()) + " notes");
+        };
+        
+        inspector->onScaleLengthChanged = [this, &editClip](double percentage) {
+            const auto& selectedIds = pianoRollView->getSelectedNoteIds();
+            if (!selectedIds.empty()) {
+                undoStack.execute(std::make_unique<ScaleLengthCommand>(editClip, selectedIds, percentage));
+                pianoRollView->repaint();
+                DebugLogWindow::addLog("Scaled length: " + juce::String(percentage) + "%");
+            }
+        };
+        
+        inspector->onLegato = [this, &editClip]() {
+            const auto& selectedIds = pianoRollView->getSelectedNoteIds();
+            if (selectedIds.empty()) {
+                juce::AlertWindow::showMessageBoxAsync(juce::AlertWindow::InfoIcon, "Legato", "No notes selected.");
+                return;
+            }
+            
+            undoStack.execute(std::make_unique<LegatoCommand>(editClip, selectedIds));
+            pianoRollView->repaint();
+            DebugLogWindow::addLog("Applied legato to " + juce::String(selectedIds.size()) + " notes");
+        };
+        
+        inspector->onOverlapChanged = [this, &editClip](int ticks) {
+            const auto& selectedIds = pianoRollView->getSelectedNoteIds();
+            if (!selectedIds.empty()) {
+                undoStack.execute(std::make_unique<SetOverlapCommand>(editClip, selectedIds, ticks));
+                pianoRollView->repaint();
+                DebugLogWindow::addLog("Overlap adjusted: " + juce::String(ticks) + " ticks");
+            }
+        };
+        
+        inspector->onTranspose = [this, &editClip](int semitones) {
+            const auto& selectedIds = pianoRollView->getSelectedNoteIds();
+            if (!selectedIds.empty()) {
+                undoStack.execute(std::make_unique<TransposeCommand>(editClip, selectedIds, semitones));
+                pianoRollView->repaint();
+                if (infoLine) infoLine->setSelectedNotes(selectedIds);
+                DebugLogWindow::addLog("Transposed: " + juce::String(semitones) + " semitones");
+            }
+        };
+        
+        inspector->onScaleChanged = [this](int root, MusicTheory::ScaleType type) {
+            if (pianoRollView) {
+                pianoRollView->setScale(root, type);
+                DebugLogWindow::addLog("Scale changed");
+            }
+        };
+        
+        inspector->onChordModeChanged = [this](MusicTheory::ChordType type) {
+            if (pianoRollView) {
+                pianoRollView->setChordMode(type);
+                DebugLogWindow::addLog("Chord mode changed");
+            }
+        };
     } else {
         inspector->setVisible(true);
     }

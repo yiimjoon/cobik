@@ -140,6 +140,48 @@ bool PianoRollView::keyPressed(const juce::KeyPress& key)
             return true;
         }
     }
+    
+    // Tool shortcuts (Cubase style)
+    // S: Select Tool
+    if (key.getTextCharacter() == 's' || key.getTextCharacter() == 'S')
+    {
+        setCurrentTool(EditorTool::Select);
+        DebugLogWindow::addLog("Tool: Select");
+        return true;
+    }
+    
+    // D: Draw Tool
+    if (key.getTextCharacter() == 'd' || key.getTextCharacter() == 'D')
+    {
+        setCurrentTool(EditorTool::Draw);
+        DebugLogWindow::addLog("Tool: Draw");
+        return true;
+    }
+    
+    // E: Erase Tool
+    if (key.getTextCharacter() == 'e' || key.getTextCharacter() == 'E')
+    {
+        setCurrentTool(EditorTool::Erase);
+        DebugLogWindow::addLog("Tool: Erase");
+        return true;
+    }
+    
+    // X: Split Tool
+    if (key.getTextCharacter() == 'x' || key.getTextCharacter() == 'X')
+    {
+        setCurrentTool(EditorTool::Split);
+        DebugLogWindow::addLog("Tool: Split");
+        return true;
+    }
+    
+    // J: Snap ON/OFF toggle (Cubase style)
+    if (key.getTextCharacter() == 'j' || key.getTextCharacter() == 'J')
+    {
+        snapEnabled = !snapEnabled;
+        DebugLogWindow::addLog("Snap: " + juce::String(snapEnabled ? "ON" : "OFF"));
+        return true;
+    }
+    
     return false;
 }
 
@@ -522,19 +564,10 @@ void PianoRollView::handleSplitToolMouseDown(juce::Point<int> p, const juce::Mou
                 splitTick = PPQ::snapToGrid(splitTick, gridTicks);
             }
             
-            // Create split command (TODO: implement SplitNoteCommand)
-            // For now, manually split:
-            int pitch = note->pitch;
-            int velocity = note->velocity;
-            int64_t originalStart = note->startTick;
-            int64_t originalEnd = note->endTick;
+            // Use SplitNoteCommand for clean undo/redo
+            undoStack.execute(std::make_unique<SplitNoteCommand>(clip, activeNoteId, splitTick));
             
-            // Remove original note
-            undoStack.execute(std::make_unique<RemoveNoteCommand>(clip, activeNoteId));
-            
-            // Add two new notes
-            undoStack.execute(std::make_unique<AddNoteCommand>(clip, pitch, originalStart, splitTick, velocity));
-            undoStack.execute(std::make_unique<AddNoteCommand>(clip, pitch, splitTick, originalEnd, velocity));
+            DebugLogWindow::addLog("Split note at tick " + juce::String(splitTick));
         }
         
         activeNoteId = -1;
@@ -758,6 +791,17 @@ void PianoRollView::mouseUp(const juce::MouseEvent& e)
 void PianoRollView::mouseMove(const juce::MouseEvent& e)
 {
     auto p = e.getPosition();
+    
+    // Update status line with mouse position
+    if (p.x >= KEYBOARD_WIDTH)
+    {
+        int64_t tick = xToTick(p.x);
+        int pitch = yToKey(p.y);
+        if (onMousePositionChanged && pitch >= 0 && pitch <= 127)
+        {
+            onMousePositionChanged(tick, pitch);
+        }
+    }
     
     // Skip keyboard area
     if (p.x < KEYBOARD_WIDTH)
