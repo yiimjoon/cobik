@@ -22,6 +22,19 @@ PianoRollView::PianoRollView(Clip& clip_, UndoStack& undoStack_, Transport& tran
 {
     setOpaque(true);
     setWantsKeyboardFocus(true);
+
+    // Set up MIDI keyboard callback
+    audioEngine.onMidiKeyEvent = [this](int pitch, bool isOn) {
+        if (isOn) {
+            currentlyPressedKeys.insert(pitch);
+            audioEngine.handleNoteOn(pitch, 0.8f);
+        } else {
+            currentlyPressedKeys.erase(pitch);
+            audioEngine.handleNoteOff(pitch);
+        }
+        updateChordDetection();
+        repaint();
+    };
 }
 
 PianoRollView::~PianoRollView() {}
@@ -200,29 +213,51 @@ void PianoRollView::paintPianoKeyboard(juce::Graphics& g, juce::Rectangle<int> a
         
         if (isBlackKey(key)) g.setColour(juce::Colour(0xff0a0a0a));
         else g.setColour(juce::Colour(0xffffffff));
-        
-        if (key == lastPlayedKey)
-            g.setColour(juce::Colours::orange);
-        
+
         g.fillRect(area.getX(), y, area.getWidth(), h);
         g.setColour(juce::Colour(0xff3a3a3a));
         g.drawHorizontalLine(y, (float)area.getX(), (float)area.getRight());
         
         if (key % 12 == 0)
         {
-            g.setColour(key == lastPlayedKey ? juce::Colours::black : juce::Colour(0xff888888));
+            g.setColour(juce::Colour(0xff888888));
             g.setFont(10.0f);
             g.drawText(getKeyName(key), area.getX() + 2, y, area.getWidth() - 4, h, juce::Justification::centredLeft, false);
         }
-        
-        // Show note name for last played key (e.g., "C4", "D#5")
-        if (lastPlayedNoteName.isNotEmpty())
-        {
-            g.setColour(juce::Colours::cyan.brighter(0.7f));
-            juce::Font boldFont(12.0f, juce::Font::bold);
-            g.setFont(boldFont);
-            g.drawText(lastPlayedNoteName, area.getX() + 60, y + h - 8, 80, 8, juce::Justification::centredLeft);
+    }
+
+    // Display chord name panel
+    if (detectedChordName.isNotEmpty())
+    {
+        int displayY = area.getY() + 10;
+        if (!currentlyPressedKeys.empty()) {
+            int topKey = *currentlyPressedKeys.rbegin();
+            displayY = keyToY(topKey);
         }
+
+        int panelHeight = 24;
+        int panelWidth = area.getWidth() - 4;
+        juce::Rectangle<int> chordPanel(area.getX() + 2, displayY - 2, panelWidth, panelHeight);
+
+        g.setColour(juce::Colours::black.withAlpha(0.85f));
+        g.fillRoundedRectangle(chordPanel.toFloat(), 4.0f);
+
+        g.setColour(juce::Colours::cyan.brighter(0.5f));
+        g.drawRoundedRectangle(chordPanel.toFloat(), 4.0f, 1.5f);
+
+        g.setColour(juce::Colours::cyan.brighter(0.7f));
+        juce::Font boldFont(14.0f, juce::Font::bold);
+        g.setFont(boldFont);
+        g.drawText(detectedChordName, chordPanel, juce::Justification::centred, true);
+    }
+
+    // Highlight pressed keys
+    for (int key : currentlyPressedKeys) {
+        int y = keyToY(key);
+        int h = static_cast<int>(pixelsPerKey);
+
+        g.setColour(juce::Colours::orange.withAlpha(0.4f));
+        g.fillRect(area.getX(), y, area.getWidth(), h);
     }
 }
 
@@ -375,8 +410,9 @@ void PianoRollView::mouseDown(const juce::MouseEvent& e)
         int key = yToKey(p.y);
         if (key >= LOWEST_KEY && key <= HIGHEST_KEY)
         {
-            lastPlayedKey = key;
+            currentlyPressedKeys.insert(key);
             audioEngine.handleNoteOn(key, 0.8f);
+            updateChordDetection();
             repaint();
         }
         return;
@@ -536,12 +572,15 @@ void PianoRollView::mouseDrag(const juce::MouseEvent& e)
     if (e.mouseDownPosition.getX() < KEYBOARD_WIDTH)
     {
         int key = yToKey(p.y);
-        if (key != lastPlayedKey && key >= LOWEST_KEY && key <= HIGHEST_KEY)
+        if (key >= LOWEST_KEY && key <= HIGHEST_KEY && currentlyPressedKeys.find(key) == currentlyPressedKeys.end())
         {
-            if (lastPlayedKey != -1) audioEngine.handleNoteOff(lastPlayedKey);
-            lastPlayedKey = key;
-            lastPlayedNoteName = MusicTheory::getNoteName(key);  // Store note name (e.g., "C4", "D#5")
+            for (int oldKey : currentlyPressedKeys) {
+                audioEngine.handleNoteOff(oldKey);
+            }
+            currentlyPressedKeys.clear();
+            currentlyPressedKeys.insert(key);
             audioEngine.handleNoteOn(key, 0.8f);
+            updateChordDetection();
             repaint();
         }
         return;
@@ -650,13 +689,13 @@ void PianoRollView::mouseUp(const juce::MouseEvent& e)
 {
     auto p = e.getPosition();
     if (mouseMode == MouseMode::Pan) setMouseCursor(juce::MouseCursor::NormalCursor);
-    
-    if (lastPlayedKey != -1)
-    {
-        audioEngine.handleNoteOff(lastPlayedKey);
-        lastPlayedKey = -1;
-        repaint();
+
+    for (int key : currentlyPressedKeys) {
+        audioEngine.handleNoteOff(key);
     }
+    currentlyPressedKeys.clear();
+    detectedChordName.clear();
+    repaint();
 
     if (mouseMode == MouseMode::Lasso)
     {
@@ -1139,6 +1178,21 @@ void PianoRollView::paintTimeline(juce::Graphics& g, juce::Rectangle<int> area)
         juce::Path triangle;
         triangle.addTriangle(x - 5, area.getY(), x + 5, area.getY(), x, area.getY() + 8);
         g.fillPath(triangle);
+    }
+}
+
+void PianoRollView::updateChordDetection()
+{
+    if (currentlyPressedKeys.empty()) {
+        detectedChordName.clear();
+        return;
+    }
+
+    auto chord = MusicTheory::detectChord(currentlyPressedKeys);
+    if (chord.isValid) {
+        detectedChordName = chord.displayName;
+    } else {
+        detectedChordName.clear();
     }
 }
 

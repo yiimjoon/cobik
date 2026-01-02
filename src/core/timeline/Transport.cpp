@@ -36,6 +36,12 @@ void Transport::stop()
     }
 }
 
+void Transport::togglePlay()
+{
+    if (playing) stop();
+    else start();
+}
+
 void Transport::setPlaying(bool play)
 {
     if (play) start();

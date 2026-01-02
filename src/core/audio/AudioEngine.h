@@ -58,9 +58,12 @@ public:
     MidiRecorder& getMidiRecorder() { return *midiRecorder; }
     void setRecordArmedTrack(int trackIndex) { recordArmedTrackIndex = trackIndex; }
     int getRecordArmedTrack() const { return recordArmedTrackIndex; }
-    
+
     // MIDI input from hardware
     void handleIncomingMidiMessage(juce::MidiInput* source, const juce::MidiMessage& message);
+
+    // MIDI event callback for UI components
+    std::function<void(int, bool)> onMidiKeyEvent;
     
 private:
     Project& project;

@@ -29,6 +29,15 @@ MainComponent::MainComponent(Project& project_, UndoStack& undoStack_, Transport
         transport.start();
     };
     
+    transportBar->onPlayDoubleClick = [this]() {
+        transport.togglePlay();
+    };
+    
+    transportBar->onStop = [this]() {
+        transport.stop();
+        stopRecording(); // Stop recording if active
+    };
+    
     transportBar->onStop = [this]() {
         transport.stop();
         stopRecording();  // Stop recording if active

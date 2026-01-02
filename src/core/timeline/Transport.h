@@ -19,6 +19,7 @@ public:
     // Playback control
     void start();
     void stop();
+    void togglePlay();
     void setPlaying(bool play);
     bool isPlaying() const { return playing; }
 

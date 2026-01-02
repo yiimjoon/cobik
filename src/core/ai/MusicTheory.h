@@ -2,6 +2,8 @@
 
 #include <juce_core/juce_core.h>
 #include <vector>
+#include <set>
+#include <algorithm>
 
 namespace pianodaw {
 
@@ -33,6 +35,13 @@ struct MusicTheory {
         Maj7,
         Min7,
         Dom7
+    };
+
+    struct ChordMatch {
+        juce::String rootNoteName;
+        ChordType type;
+        juce::String displayName;
+        bool isValid = false;
     };
 
     /** Returns intervals from root for a given scale type */
@@ -83,6 +92,86 @@ struct MusicTheory {
         int semitone = pitch % 12;
         int octave = (pitch / 12) - 1;
         return juce::String(notes[semitone]) + juce::String(octave);
+    }
+
+    /** Get root note name from semitone (0-11) -> "C", "C#", "D", etc. */
+    static juce::String getRootNoteName(int semitone) {
+        const char* notes[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+        return juce::String(notes[semitone % 12]);
+    }
+
+    /** Detect chord from a set of MIDI pitches (e.g., {60, 64, 67} -> "C") */
+    static ChordMatch detectChord(const std::set<int>& pitches) {
+        ChordMatch result;
+
+        if (pitches.size() < 3) {
+            return result;
+        }
+
+        std::set<int> normalizedPitches;
+        for (int pitch : pitches) {
+            normalizedPitches.insert(pitch % 12);
+        }
+
+        for (int rootCandidate : normalizedPitches) {
+            std::vector<int> intervals;
+            for (int pitch : normalizedPitches) {
+                int interval = (pitch - rootCandidate + 12) % 12;
+                intervals.push_back(interval);
+            }
+            std::sort(intervals.begin(), intervals.end());
+
+            ChordType matchedType = matchIntervals(intervals);
+
+            if (matchedType != ChordType::None) {
+                result.rootNoteName = getRootNoteName(rootCandidate);
+                result.type = matchedType;
+                result.displayName = formatChordName(result.rootNoteName, matchedType);
+                result.isValid = true;
+                return result;
+            }
+        }
+
+        result.displayName = juce::String(normalizedPitches.size()) + " notes";
+        result.isValid = true;
+        return result;
+    }
+
+private:
+    static ChordType matchIntervals(const std::vector<int>& intervals) {
+        if (intervals.empty() || intervals[0] != 0) return ChordType::None;
+
+        if (intervals.size() == 3) {
+            if (intervals == std::vector<int>{0, 4, 7}) return ChordType::Major;
+            if (intervals == std::vector<int>{0, 3, 7}) return ChordType::Minor;
+            if (intervals == std::vector<int>{0, 3, 6}) return ChordType::Diminished;
+            if (intervals == std::vector<int>{0, 4, 8}) return ChordType::Augmented;
+            if (intervals == std::vector<int>{0, 2, 7}) return ChordType::Sus2;
+            if (intervals == std::vector<int>{0, 5, 7}) return ChordType::Sus4;
+        }
+
+        if (intervals.size() == 4) {
+            if (intervals == std::vector<int>{0, 4, 7, 11}) return ChordType::Maj7;
+            if (intervals == std::vector<int>{0, 3, 7, 10}) return ChordType::Min7;
+            if (intervals == std::vector<int>{0, 4, 7, 10}) return ChordType::Dom7;
+        }
+
+        return ChordType::None;
+    }
+
+    static juce::String formatChordName(const juce::String& root, ChordType type) {
+        switch (type) {
+            case ChordType::Major:      return root;
+            case ChordType::Minor:      return root + "m";
+            case ChordType::Diminished: return root + "dim";
+            case ChordType::Augmented:  return root + "aug";
+            case ChordType::Sus2:       return root + "sus2";
+            case ChordType::Sus4:       return root + "sus4";
+            case ChordType::Maj7:       return root + "maj7";
+            case ChordType::Min7:       return root + "m7";
+            case ChordType::Dom7:       return root + "7";
+            default:                    return root;
+        }
     }
 };
 

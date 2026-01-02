@@ -21,10 +21,11 @@ public:
     
     // Callbacks
     std::function<void()> onPlay;
+    std::function<void()> onPlayDoubleClick;  // Play double-click -> toggle
     std::function<void()> onStop;
-    std::function<void()> onStopDoubleClick;  // Stop 두번 클릭 → 원위치
+    std::function<void()> onStopDoubleClick;  // Stop double-click -> rewind
+    std::function<void()> onRecordToggle;
     std::function<void(bool)> onLoopToggle;
-    std::function<void(bool)> onRecordToggle;
     
     // State
     void setRecording(bool isRecording);
@@ -39,7 +40,8 @@ private:
     std::unique_ptr<juce::Label> tempoLabel;
     
     bool recording = false;
-    juce::uint32 lastStopClickTime = 0;  // Stop 더블클릭 감지용
+    juce::uint32 lastStopClickTime = 0;  // For Stop double-click detection
+    juce::uint32 lastPlayClickTime = 0;  // For Play double-click detection
     
     void setupButtons();
     

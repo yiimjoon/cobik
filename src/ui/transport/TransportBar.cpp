@@ -17,7 +17,18 @@ void TransportBar::setupButtons()
     // Play button (▶)
     playButton = std::make_unique<juce::TextButton>("Play");
     playButton->onClick = [this]() {
-        if (onPlay) onPlay();
+        auto currentTime = juce::Time::getMillisecondCounter();
+        
+        // Double-click detection (500ms 이내)
+        if (currentTime - lastPlayClickTime < 500) {
+            DebugLogWindow::addLog("Play button: DOUBLE-CLICK detected - toggle play/pause");
+            if (onPlayDoubleClick) onPlayDoubleClick();
+        } else {
+            DebugLogWindow::addLog("Play button: Single click");
+            if (onPlay) onPlay();
+        }
+        
+        lastPlayClickTime = currentTime;
     };
     addAndMakeVisible(playButton.get());
     

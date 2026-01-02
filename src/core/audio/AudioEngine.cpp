@@ -490,8 +490,15 @@ void AudioEngine::handleIncomingMidiMessage(juce::MidiInput* source, const juce:
     // Add incoming MIDI to buffer (thread-safe)
     juce::ScopedLock sl(hardwareMidiLock);
     hardwareMidiBuffer.addEvent(message, 0);
-    
+
     DebugLogWindow::addLog("MIDI Hardware: " + message.getDescription());
+
+    // Notify UI of note events
+    if (message.isNoteOn()) {
+        if (onMidiKeyEvent) onMidiKeyEvent(message.getNoteNumber(), true);
+    } else if (message.isNoteOff()) {
+        if (onMidiKeyEvent) onMidiKeyEvent(message.getNoteNumber(), false);
+    }
 }
 
 } // namespace pianodaw

@@ -105,9 +105,9 @@ private:
     EditorTool currentTool = EditorTool::Select;
     bool snapEnabled = true;
     
-    // Keyboard state
-    int lastPlayedKey = -1;
-    juce::String lastPlayedNoteName;  // Shows "C4", "D#5", etc.
+    // Keyboard state for chord detection
+    std::set<int> currentlyPressedKeys;
+    juce::String detectedChordName;
     
     // Selection state
     std::vector<int> selectedNoteIds;
@@ -174,6 +174,7 @@ private:
     
     bool isBlackKey(int midiKey) const;
     juce::String getKeyName(int midiKey) const;
+    void updateChordDetection();
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PianoRollView)
 };
