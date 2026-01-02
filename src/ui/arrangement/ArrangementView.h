@@ -33,6 +33,7 @@ public:
     void mouseDoubleClick(const juce::MouseEvent& event) override;
     void mouseDrag(const juce::MouseEvent& event) override;
     void mouseUp(const juce::MouseEvent& event) override;
+    void mouseMove(const juce::MouseEvent& event) override;
     void mouseWheelMove(const juce::MouseEvent& event, const juce::MouseWheelDetails& wheel) override;
     bool keyPressed(const juce::KeyPress& key) override;
 
@@ -93,8 +94,11 @@ private:
     // Drag state
     bool isDraggingClip = false;
     bool isDraggingPlayhead = false;
+    bool isResizingClipStart = false;
+    bool isResizingClipEnd = false;
     int dragStartX = 0;
     int dragStartTick = 0;
+    int64_t originalClipLength = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ArrangementView)
 };

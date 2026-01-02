@@ -53,10 +53,32 @@ void ArrangementView::mouseDown(const juce::MouseEvent& event)
     selectedTrack = hit.track;
     selectedClipRegion = hit.clipRegion;
     
-    if (selectedClipRegion) {
-        isDraggingClip = true;
-        dragStartX = event.x;
-        dragStartTick = selectedClipRegion->startTick;
+    if (selectedClipRegion && selectedTrack) {
+        int clipStartX = ticksToX(selectedClipRegion->startTick);
+        int clipEndX = ticksToX(selectedClipRegion->getEndTick());
+        
+        const int resizeEdgeThreshold = 8;
+        
+        // Check if clicking near edges for resize
+        if (std::abs(event.x - clipStartX) < resizeEdgeThreshold)
+        {
+            isResizingClipStart = true;
+            dragStartTick = selectedClipRegion->startTick;
+            originalClipLength = selectedClipRegion->lengthTick;
+        }
+        else if (std::abs(event.x - clipEndX) < resizeEdgeThreshold)
+        {
+            isResizingClipEnd = true;
+            dragStartTick = selectedClipRegion->startTick;
+            originalClipLength = selectedClipRegion->lengthTick;
+        }
+        else
+        {
+            // Regular clip drag
+            isDraggingClip = true;
+            dragStartX = event.x;
+            dragStartTick = selectedClipRegion->startTick;
+        }
     }
     
     repaint();
@@ -85,6 +107,36 @@ void ArrangementView::mouseDoubleClick(const juce::MouseEvent& event)
 
 void ArrangementView::mouseDrag(const juce::MouseEvent& event)
 {
+    // Resize clip start
+    if (isResizingClipStart && selectedClipRegion)
+    {
+        int64_t newStartTick = xToTicks(event.x);
+        int64_t clipEnd = dragStartTick + originalClipLength;
+        
+        // Ensure clip doesn't become negative length
+        if (newStartTick >= 0 && newStartTick < clipEnd - 480)
+        {
+            selectedClipRegion->startTick = newStartTick;
+            selectedClipRegion->lengthTick = clipEnd - newStartTick;
+            repaint();
+        }
+        return;
+    }
+    
+    // Resize clip end
+    if (isResizingClipEnd && selectedClipRegion)
+    {
+        int64_t newEndTick = xToTicks(event.x);
+        
+        // Ensure clip has minimum length
+        if (newEndTick > selectedClipRegion->startTick + 480)
+        {
+            selectedClipRegion->lengthTick = newEndTick - selectedClipRegion->startTick;
+            repaint();
+        }
+        return;
+    }
+    
     // Playhead dragging (헤더 영역에서 드래그)
     if (isDraggingPlayhead && transport) {
         int64_t dragTick = xToTicks(event.x);
@@ -117,6 +169,42 @@ void ArrangementView::mouseUp(const juce::MouseEvent& event)
 {
     isDraggingClip = false;
     isDraggingPlayhead = false;
+    isResizingClipStart = false;
+    isResizingClipEnd = false;
+}
+
+void ArrangementView::mouseMove(const juce::MouseEvent& event)
+{
+    // Check if mouse is near clip edge for resize cursor
+    auto hit = findClipRegionAt(event.x, event.y);
+    
+    if (hit.clipRegion && hit.track)
+    {
+        int clipStartX = ticksToX(hit.clipRegion->startTick);
+        int clipEndX = ticksToX(hit.clipRegion->getEndTick());
+        
+        const int resizeEdgeThreshold = 8; // pixels from edge
+        
+        if (std::abs(event.x - clipStartX) < resizeEdgeThreshold)
+        {
+            // Near start edge
+            setMouseCursor(juce::MouseCursor::LeftEdgeResizeCursor);
+        }
+        else if (std::abs(event.x - clipEndX) < resizeEdgeThreshold)
+        {
+            // Near end edge
+            setMouseCursor(juce::MouseCursor::RightEdgeResizeCursor);
+        }
+        else
+        {
+            // Inside clip but not near edge
+            setMouseCursor(juce::MouseCursor::NormalCursor);
+        }
+    }
+    else
+    {
+        setMouseCursor(juce::MouseCursor::NormalCursor);
+    }
 }
 
 void ArrangementView::mouseWheelMove(const juce::MouseEvent& event, const juce::MouseWheelDetails& wheel)
