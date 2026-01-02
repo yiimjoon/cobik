@@ -38,11 +38,6 @@ MainComponent::MainComponent(Project& project_, UndoStack& undoStack_, Transport
         stopRecording(); // Stop recording if active
     };
     
-    transportBar->onStop = [this]() {
-        transport.stop();
-        stopRecording();  // Stop recording if active
-    };
-    
     transportBar->onStopDoubleClick = [this]() {
         DebugLogWindow::addLog("MainComponent: onStopDoubleClick callback called!");
         DebugLogWindow::addLog("MainComponent: Current position = " + juce::String(transport.getPosition()));

@@ -35,32 +35,40 @@ struct ClipRegion
 class Track
 {
 public:
-    enum class Type { MIDI, Audio, Group };
-    
+    enum class Type { MIDI, Audio, Instrument, Drum, Group, Folder };
+
     Track(const juce::String& name_, Type type_ = Type::MIDI)
         : name(name_), type(type_) {}
-    
+
     ~Track() = default;
-    
+
     // Basic properties
     juce::String getName() const { return name; }
     void setName(const juce::String& n) { name = n; }
-    
+
     Type getType() const { return type; }
-    
+
+    // Type checking methods
+    bool isMIDI() const { return type == Type::MIDI; }
+    bool isAudio() const { return type == Type::Audio; }
+    bool isInstrument() const { return type == Type::Instrument; }
+    bool isDrum() const { return type == Type::Drum; }
+    bool isFolder() const { return type == Type::Folder; }
+    bool isGroup() const { return type == Type::Group; }
+
     juce::Colour getColour() const { return colour; }
     void setColour(juce::Colour c) { colour = c; }
-    
+
     // State
     bool isSolo() const { return solo; }
     void setSolo(bool s) { solo = s; }
-    
+
     bool isMuted() const { return muted; }
     void setMute(bool m) { muted = m; }
-    
+
     float getVolume() const { return volume; }
     void setVolume(float v) { volume = juce::jlimit(0.0f, 1.0f, v); }
-    
+
     float getPan() const { return pan; }
     void setPan(float p) { pan = juce::jlimit(-1.0f, 1.0f, p); }
     

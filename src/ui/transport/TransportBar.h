@@ -24,7 +24,7 @@ public:
     std::function<void()> onPlayDoubleClick;  // Play double-click -> toggle
     std::function<void()> onStop;
     std::function<void()> onStopDoubleClick;  // Stop double-click -> rewind
-    std::function<void()> onRecordToggle;
+    std::function<void(bool)> onRecordToggle;  // Record toggle -> bool state
     std::function<void(bool)> onLoopToggle;
     
     // State

@@ -1,23 +1,28 @@
 #include "Project.h"
 #include "Clip.h"
 #include "Track.h"
+#include "../../ui/panels/DebugLogWindow.h"
 
 namespace pianodaw {
 
 bool Project::saveToFile(const juce::File& file)
 {
-    auto xml = toXml();
+    auto xml = std::unique_ptr<juce::XmlElement>(toXml());
+    
     if (!xml)
         return false;
     
-    bool success = xml->writeToFile(file, juce::String());
+    if (xml->getTagName() != "PianoDAWProject")
+        return false;
     
-    if (success) {
-        projectFile = file;
-        modified = false;
+    // Save project
+    if (!xml->writeToFile(file, juce::String())) {
+        return false;
     }
     
-    return success;
+    projectFile = file;
+    modified = false;
+    return true;
 }
 
 bool Project::loadFromFile(const juce::File& file)
@@ -93,7 +98,18 @@ juce::XmlElement* Project::toXml() const
         auto* trackXml = tracksXml->createNewChildElement("Track");
         trackXml->setAttribute("id", trackId++);
         trackXml->setAttribute("name", track->getName());
-        trackXml->setAttribute("type", track->getType() == Track::Type::MIDI ? "MIDI" : "Audio");
+        
+        // Track type
+        juce::String typeStr;
+        switch (track->getType()) {
+            case Track::Type::MIDI:       typeStr = "MIDI"; break;
+            case Track::Type::Audio:      typeStr = "Audio"; break;
+            case Track::Type::Instrument: typeStr = "Instrument"; break;
+            case Track::Type::Drum:       typeStr = "Drum"; break;
+            case Track::Type::Folder:     typeStr = "Folder"; break;
+            case Track::Type::Group:      typeStr = "Group"; break;
+        }
+        trackXml->setAttribute("type", typeStr);
         
         // Color
         auto color = track->getColour();
@@ -192,9 +208,16 @@ bool Project::fromXml(const juce::XmlElement& xml)
             
             juce::String trackName = trackXml->getStringAttribute("name");
             juce::String typeStr = trackXml->getStringAttribute("type");
-            Track::Type type = (typeStr == "MIDI") ? Track::Type::MIDI : Track::Type::Audio;
+            
+            Track::Type type = Track::Type::MIDI;
+            if (typeStr == "Audio") type = Track::Type::Audio;
+            else if (typeStr == "Instrument") type = Track::Type::Instrument;
+            else if (typeStr == "Drum") type = Track::Type::Drum;
+            else if (typeStr == "Folder") type = Track::Type::Folder;
+            else if (typeStr == "Group") type = Track::Type::Group;
             
             Track* track = addTrack(trackName, type);
+            DebugLogWindow::addLog("Project: Loaded " + trackName + " track (" + typeStr + ")");
             
             // Load color
             auto* colorXml = trackXml->getChildByName("Color");
@@ -225,7 +248,7 @@ bool Project::fromXml(const juce::XmlElement& xml)
                 
                 int64_t startTick = regionXml->getIntAttribute("startTick");
                 int64_t offsetTick = regionXml->getIntAttribute("offsetTick");
-                int64_t lengthTick = regionXml->getIntAttribute("lengTick");
+                int64_t lengthTick = regionXml->getIntAttribute("lengthTick");
                 bool muted = regionXml->getStringAttribute("muted") == "true";
                 
                 ClipRegion region(clip, startTick, lengthTick);
