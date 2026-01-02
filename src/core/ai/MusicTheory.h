@@ -76,6 +76,14 @@ struct MusicTheory {
         for (int i : intervals) if (i == semitone) return true;
         return false;
     }
+    
+    /** Get note name from MIDI pitch (e.g., 60 -> "C4", 62 -> "D4") */
+    static juce::String getNoteName(int pitch) {
+        const char* notes[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+        int semitone = pitch % 12;
+        int octave = (pitch / 12) - 1;
+        return juce::String(notes[semitone]) + juce::String(octave);
+    }
 };
 
 } // namespace pianodaw

@@ -107,6 +107,7 @@ private:
     
     // Keyboard state
     int lastPlayedKey = -1;
+    juce::String lastPlayedNoteName;  // Shows "C4", "D#5", etc.
     
     // Selection state
     std::vector<int> selectedNoteIds;

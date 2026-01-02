@@ -203,7 +203,7 @@ void PianoRollView::paintPianoKeyboard(juce::Graphics& g, juce::Rectangle<int> a
         
         if (key == lastPlayedKey)
             g.setColour(juce::Colours::orange);
-
+        
         g.fillRect(area.getX(), y, area.getWidth(), h);
         g.setColour(juce::Colour(0xff3a3a3a));
         g.drawHorizontalLine(y, (float)area.getX(), (float)area.getRight());
@@ -213,6 +213,15 @@ void PianoRollView::paintPianoKeyboard(juce::Graphics& g, juce::Rectangle<int> a
             g.setColour(key == lastPlayedKey ? juce::Colours::black : juce::Colour(0xff888888));
             g.setFont(10.0f);
             g.drawText(getKeyName(key), area.getX() + 2, y, area.getWidth() - 4, h, juce::Justification::centredLeft, false);
+        }
+        
+        // Show note name for last played key (e.g., "C4", "D#5")
+        if (lastPlayedNoteName.isNotEmpty())
+        {
+            g.setColour(juce::Colours::cyan.brighter(0.7f));
+            juce::Font boldFont(12.0f, juce::Font::bold);
+            g.setFont(boldFont);
+            g.drawText(lastPlayedNoteName, area.getX() + 60, y + h - 8, 80, 8, juce::Justification::centredLeft);
         }
     }
 }
@@ -531,6 +540,7 @@ void PianoRollView::mouseDrag(const juce::MouseEvent& e)
         {
             if (lastPlayedKey != -1) audioEngine.handleNoteOff(lastPlayedKey);
             lastPlayedKey = key;
+            lastPlayedNoteName = MusicTheory::getNoteName(key);  // Store note name (e.g., "C4", "D#5")
             audioEngine.handleNoteOn(key, 0.8f);
             repaint();
         }
