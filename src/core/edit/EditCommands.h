@@ -453,13 +453,167 @@ public:
             }
         }
     }
-    
+
     std::string getDescription() const override { return "Set Velocity"; }
 
 private:
     Clip& clip;
     std::vector<int> noteIds;
     int newVelocity;
+    std::vector<int> originalVelocities;
+};
+
+/**
+ * MultiplyVelocityCommand - Multiply velocities by a percentage
+ * @param percentage: 0-200 (100 = no change, 50 = half, 200 = double)
+ */
+class MultiplyVelocityCommand : public Command
+{
+public:
+    MultiplyVelocityCommand(Clip& clip_, const std::vector<int>& noteIds_, double percentage_)
+        : clip(clip_), noteIds(noteIds_), percentage(percentage_) {}
+
+    void execute() override
+    {
+        originalVelocities.clear();
+        for (int id : noteIds)
+        {
+            if (auto* n = clip.findNote(id))
+            {
+                originalVelocities.push_back(n->velocity);
+                double newVel = n->velocity * (percentage / 100.0);
+                n->velocity = std::max(1, std::min(127, (int)newVel));
+            }
+        }
+    }
+
+    void undo() override
+    {
+        size_t idx = 0;
+        for (int id : noteIds)
+        {
+            if (auto* n = clip.findNote(id))
+            {
+                if (idx < originalVelocities.size())
+                {
+                    n->velocity = originalVelocities[idx++];
+                }
+            }
+        }
+    }
+
+    std::string getDescription() const override { return "Multiply Velocity"; }
+
+private:
+    Clip& clip;
+    std::vector<int> noteIds;
+    double percentage;
+    std::vector<int> originalVelocities;
+};
+
+/**
+ * AddVelocityCommand - Add/subtract from velocities
+ * @param amount: -127 to +127 (negative = subtract, positive = add)
+ */
+class AddVelocityCommand : public Command
+{
+public:
+    AddVelocityCommand(Clip& clip_, const std::vector<int>& noteIds_, int amount_)
+        : clip(clip_), noteIds(noteIds_), amount(amount_) {}
+
+    void execute() override
+    {
+        originalVelocities.clear();
+        for (int id : noteIds)
+        {
+            if (auto* n = clip.findNote(id))
+            {
+                originalVelocities.push_back(n->velocity);
+                n->velocity = std::max(1, std::min(127, n->velocity + amount));
+            }
+        }
+    }
+
+    void undo() override
+    {
+        size_t idx = 0;
+        for (int id : noteIds)
+        {
+            if (auto* n = clip.findNote(id))
+            {
+                if (idx < originalVelocities.size())
+                {
+                    n->velocity = originalVelocities[idx++];
+                }
+            }
+        }
+    }
+
+    std::string getDescription() const override { return "Add Velocity"; }
+
+private:
+    Clip& clip;
+    std::vector<int> noteIds;
+    int amount;
+    std::vector<int> originalVelocities;
+};
+
+/**
+ * RandomizeVelocityCommand - Randomize velocities within a range
+ * @param minPercent: Minimum percentage of original (0-100)
+ * @param maxPercent: Maximum percentage of original (0-200)
+ */
+class RandomizeVelocityCommand : public Command
+{
+public:
+    RandomizeVelocityCommand(Clip& clip_, const std::vector<int>& noteIds_, int minPercent_, int maxPercent_)
+        : clip(clip_), noteIds(noteIds_), minPercent(minPercent_), maxPercent(maxPercent_) {}
+
+    void execute() override
+    {
+        originalVelocities.clear();
+        std::srand((unsigned)std::time(nullptr));
+
+        for (int id : noteIds)
+        {
+            if (auto* n = clip.findNote(id))
+            {
+                originalVelocities.push_back(n->velocity);
+
+                int minVel = (int)(n->velocity * minPercent / 100.0);
+                int maxVel = (int)(n->velocity * maxPercent / 100.0);
+
+                int range = maxVel - minVel + 1;
+                if (range <= 0) range = 1;
+
+                int newVel = minVel + (std::rand() % range);
+                n->velocity = std::max(1, std::min(127, newVel));
+            }
+        }
+    }
+
+    void undo() override
+    {
+        size_t idx = 0;
+        for (int id : noteIds)
+        {
+            if (auto* n = clip.findNote(id))
+            {
+                if (idx < originalVelocities.size())
+                {
+                    n->velocity = originalVelocities[idx++];
+                }
+            }
+        }
+    }
+
+    std::string getDescription() const override { return "Randomize Velocity"; }
+
+private:
+    Clip& clip;
+    std::vector<int> noteIds;
+    int minPercent;
+    int maxPercent;
     std::vector<int> originalVelocities;
 };
 

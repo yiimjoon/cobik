@@ -71,6 +71,17 @@ public:
 
     float getPan() const { return pan; }
     void setPan(float p) { pan = juce::jlimit(-1.0f, 1.0f, p); }
+
+    // Per-track quantize settings
+    struct QuantizeSettings {
+        bool enabled = true;
+        float strength = 1.0f;
+        float swing = 0.5f;
+        bool smartChord = true;
+    };
+
+    QuantizeSettings getQuantizeSettings() const { return quantizeSettings; }
+    void setQuantizeSettings(const QuantizeSettings& settings) { quantizeSettings = settings; }
     
     // Clip regions
     void addClipRegion(const ClipRegion& region)
@@ -118,11 +129,13 @@ private:
     juce::String name;
     Type type;
     juce::Colour colour = juce::Colours::blue;
-    
+
     bool solo = false;
     bool muted = false;
     float volume = 0.8f;  // 0.0 to 1.0
     float pan = 0.0f;     // -1.0 (left) to 1.0 (right)
+
+    QuantizeSettings quantizeSettings;
     
     std::vector<ClipRegion> clipRegions;
     int nextRegionId = 1;
